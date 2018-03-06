@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
-<xs:schema xmlns="http://www.londelec.com/xmlschemas/leandc/IEC61850cl" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:le="http://www.londelec.com/xmlschemas/leandc/LEDefinitionSchema" targetNamespace="http://www.londelec.com/xmlschemas/leandc/IEC61850cl" attributeFormDefault="unqualified" elementFormDefault="qualified" version="4.06">
+<xs:schema xmlns="http://www.londelec.com/xmlschemas/leandc/IEC61850cl" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:le="http://www.londelec.com/xmlschemas/leandc/LEDefinitionSchema" targetNamespace="http://www.londelec.com/xmlschemas/leandc/IEC61850cl" attributeFormDefault="unqualified" elementFormDefault="qualified" version="4.09">
   <xs:include schemaLocation="TypesSchema.xsd"/>
   <xs:include schemaLocation="SCL_LE.xsd"/>
   <xs:include schemaLocation="IEC10xma.xsd"/>
@@ -71,6 +71,7 @@
     <xs:attribute name="CallingAEqualifier" type="CallingAEqualifierRange" use="optional" default="12"/>
     <xs:attribute name="AARQfields" type="AARQfieldsRange" use="optional" default="0"/>
     <xs:attribute name="MMSversion" type="MMSversionRange" use="optional" default="1"/>
+    <xs:attribute name="Flags" type="AFlags" use="optional" default="0"/>
     <xs:anyAttribute processContents="skip"/>
   </xs:complexType>
   <xs:complexType name="ScsmSettingsType">
@@ -82,6 +83,7 @@
     <xs:attribute name="BOptFlds" type="BOptFldsType" use="optional" default="0x0001"/>
     <xs:attribute name="UOptFlds" type="UOptFldsType" use="optional" default="0x0000"/>
     <xs:attribute name="Flags" type="ScsmFlags" use="optional" default="0"/>
+    <!--xs:attribute name="InfoLogFlags" type="InfoLogFlags" use="optional" default="0"/-->
     <xs:anyAttribute processContents="skip"/>
   </xs:complexType>
   <xs:complexType name="AppSettingsType">
@@ -394,6 +396,19 @@
       <xs:maxInclusive value="3"/>
     </xs:restriction>
   </xs:simpleType>
+  <xs:simpleType name="AFlags">
+    <xs:annotation>
+      <xs:documentation>Association layer flags</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 Check AP Title AE Qualifier">
+            <xs:documentation>Responding AP Title and Responding AE Qualifier of the received [AARE APDU] are being Checked(1) / Ignored(0) [ISO8650-1:1996]</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="ByteType"/>
+  </xs:simpleType>
   <xs:simpleType name="BdyndsnameType">
     <xs:annotation>
       <xs:documentation>Name for dynamic datasets that are going to be linked to Buffered report blocks</xs:documentation>
@@ -486,15 +501,18 @@
       <xs:appinfo>
         <le:binaryEncode>
           <le:bit value="0" caption="Bit 0 Leading 0 in dyndns name">
-            <xs:documentation>Omit(1) / Use(0) leading 0 in dynamic dataset names with number less than 10. This is used in conjunction with DI/AI DSnum attribute.</xs:documentation>
+            <xs:documentation>Omit(1) / Add(0) leading 0 in dynamic dataset names with number less than 10. This is used in conjunction with DI/AI DSnum attribute.</xs:documentation>
           </le:bit>
           <le:bit value="1" caption="Bit 1 PurgeBuf if fails">
             <xs:documentation>Set(1) / Don't set(0) Buffererd Report Control Block [PurgeBuf] flag in case [EntryID] setting fails when station goes online [IEC61850-7-2:2010]</xs:documentation>
           </le:bit>
+          <le:bit value="2" caption="Bit 2 Read All Basic Types">
+            <xs:documentation>Read Basic types of All(1) / Objects non-existent in SCL(0) when station goes online. In case IEC61850 server has any objects that don't appear in CID/SCD, basic types of those objects are being read with [GetDataDirectory]. Setting this flag forces reading BasicTypes of all objects.</xs:documentation>
+          </le:bit>
         </le:binaryEncode>
       </xs:appinfo>
     </xs:annotation>
-    <xs:restriction base="ByteType"/>
+    <xs:restriction base="WordType"/>
   </xs:simpleType>
   <xs:simpleType name="bufTimeRange">
     <xs:annotation>
@@ -515,10 +533,16 @@
           <le:bit value="1" caption="Bit 1 Ignore Enhanced cmd report">
             <xs:documentation>Enhanced security command completion report is Ignored(1) / Processed(0). This bit has to be used only for IEDs that doesn't generate a report when Enhanced security Direct or SBO command is complete. If not set command will be removed only after Application timeout expiration.</xs:documentation>
           </le:bit>
+          <le:bit value="2" caption="Bit 2 Use millisecond accuracy">
+            <xs:documentation>Millisecond accuracy of timetags received from IED is Used(1) / Ignored(0). Some IEDs report lower accuracy if the IED is not synchronized. Enabling this setting will result in rounding of milliseconds based on the accuracy and the timetag may appear different from the value IED has recorded in the internal event list.</xs:documentation>
+          </le:bit>
+          <!--le:bit value="8" caption="Bit 8 All static datasets">
+            <xs:documentation>Enable and use All(1) / Required only(0) static datasets when station goes online. Only those Static datasets that contain required DI/AIs (defined in XML) are enabled by default (0). All static datasets found in SCL file are enabled if set to (1). This option has no effect on dynamic datasets.</xs:documentation>
+          </le:bit-->
         </le:binaryEncode>
       </xs:appinfo>
     </xs:annotation>
-    <xs:restriction base="ByteType"/>
+    <xs:restriction base="WordType"/>
   </xs:simpleType>
   <xs:simpleType name="intgPdRange">
     <xs:annotation>

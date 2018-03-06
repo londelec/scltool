@@ -13,6 +13,8 @@ import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.w3c.dom.Element;
+
 
 /**
  *
@@ -37,38 +39,9 @@ public class SCLtree_node {
 
     public SCLtree_node(Document xmldoc) {
         procMain(xmldoc);
-
-        scdTree = new JTree(treeRoot);
-        scdTree.setRootVisible(visibleRoot);
-        scdTree.addTreeSelectionListener(new TreeSelectionListener() {
-            @Override
-            public void valueChanged(TreeSelectionEvent e) {
-                sclTreeElem te = (sclTreeElem) scdTree.getLastSelectedPathComponent();
-
-                /* if nothing is selected */
-                if (te == null)
-                    return;
-
-                /* retrieve the node that was selected */
-                /*String info = "";
-                int length = te.attrs.length;
-                for (int i = 0; i < length; i++) {
-                    info += te.attrs[i][0].toString();
-                    info += " : ";
-                    info += te.attrs[i][1].toString();
-                    info += "\n";
-                }*/
-                SclMain.textAttrib.setText(loadAttributes(te.xmlNode));
-                updateSelected(te);
-            }
-        });
-
-        //if (leafIcon != null) {
-        //DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
-        //Icon aaa = renderer.getDefaultLeafIcon();
-        //renderer.setOpenIcon(aaa);
-        //scdTree.setCellRenderer(renderer);
-        //}
+        if (SclMain.textFind != null)
+            SclMain.textFind.setText("");   // Clear find text
+        newTree(treeRoot);
     }
 
 
@@ -80,6 +53,7 @@ public class SCLtree_node {
         public String fc;
         public int flags = 0;
 
+
         public sclTreeElem(String name, Node nd, String ty, Object nm, String fcc, int fl) {
             super(name);    // Name to show in the tree e.g. 'LN: LLN0'
             xmlNode = nd;
@@ -89,6 +63,7 @@ public class SCLtree_node {
             fc = fcc;
             flags |= fl;
         }
+
 
         public Object cloneDA() {
             sclTreeElem newel, te;
@@ -106,6 +81,7 @@ public class SCLtree_node {
         }
     }
 
+
     protected class dsContents extends LnName {
         public String ldInst;
         public String doName;
@@ -120,8 +96,88 @@ public class SCLtree_node {
     }
 
 
+    private void newTree(sclTreeElem root) {
+
+        scdTree = new JTree(root);
+        scdTree.setRootVisible(visibleRoot);
+        SclMain.newSelected(false);     // Clear selected text
+        SclMain.textAttrib.setText(""); // Clear attributes text
+
+        scdTree.addTreeSelectionListener(new TreeSelectionListener() {
+            @Override
+            public void valueChanged(TreeSelectionEvent e) {
+                sclTreeElem te = (sclTreeElem) scdTree.getLastSelectedPathComponent();
+
+                /* if nothing is selected */
+                if (te == null)
+                    return;
+
+                /* retrieve the node that was selected */
+                SclMain.textAttrib.setText(loadAttributes(te.xmlNode));
+                updateSelected(te);
+            }
+        });
+
+        //if (leafIcon != null) {
+        //DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
+        //Icon aaa = renderer.getDefaultLeafIcon();
+        //renderer.setOpenIcon(aaa);
+        //scdTree.setCellRenderer(renderer);
+        //}
+    }
+
+
+    public void filterTree(String flt) {
+        if (flt.isEmpty()) {
+            newTree(treeRoot);
+        }
+        else {
+            sclTreeElem fte = (sclTreeElem) treeRoot.clone();    // Clone this element
+            filterTraverse(treeRoot, fte, flt.toUpperCase());
+            newTree(fte);
+        }
+    }
+
+    private int filterTraverse(sclTreeElem pmte, sclTreeElem pfte, String flt) {
+        sclTreeElem mte, fte;
+        int included = 0;
+        String comp;
+
+        for (mte = (sclTreeElem) pmte.getFirstChild(); mte != null; mte = (sclTreeElem) mte.getNextSibling()) {
+            if (mte.sclname != null) {
+                comp = mte.sclname.toString().toUpperCase();
+                if ((mte.flags & FLAG_LN) > 0) {
+                    comp = ((LnName) mte.sclname).prefix + ((LnName) mte.sclname).lnClass + ((LnName) mte.sclname).lnInst;
+                }
+                if (comp.contains(flt)) {
+                    //pfte.add((sclTreeElem) mte.clone());
+                    pfte.add((sclTreeElem) mte.cloneDA());
+                    included = 1;
+                    continue;
+                }
+            }
+
+            if (mte.getChildCount() > 0) {
+                fte = (sclTreeElem) mte.clone();    // Clone this element
+                if (filterTraverse(mte, fte, flt) > 0) {
+                    pfte.add(fte);
+                    included = 1;
+                }
+            }
+        }
+        return included;
+    }
+
     private void procMain(Document doc) {
         NodeList nList;
+        Element ndRoot;
+
+        ndRoot = doc.getDocumentElement();
+        SclMain.SCLversion = ndRoot.getAttribute("version");
+        SclMain.SCLrevision = ndRoot.getAttribute("revision");
+        treeRoot = new sclTreeElem("SCL", ndRoot, null, null, "", 0);
+        visibleRoot = false;
+        //visibleRoot = true;   // For Debug
 
         nList = doc.getElementsByTagName("DataTypeTemplates");
         if (nList.getLength() == 1) {
@@ -129,6 +185,11 @@ public class SCLtree_node {
         }
         else
             return;
+
+        // Process Communication node
+        if ((SclMain.vflags & SclMain.FLAG_COMMS) > 0) {
+            procCommunication(doc);
+        }
 
         // Process IED nodes
         procIED(doc);
@@ -139,38 +200,116 @@ public class SCLtree_node {
     }
 
 
+    private void procCommunication(Document doc) {
+        Node ndComms, ndSubnet, ndAP, ndChildAP, ndChildGSE;
+        NodeList nList;
+        sclTreeElem teComms, teSubnet, teAP, teChildAP, teChildGSE;
+        int lenAP, lenGSE;
+        String nameChildAP, nameChildGSE, varName;
+
+        nList = doc.getElementsByTagName("Communication");
+        if (nList.getLength() == 1) {
+            ndComms = nList.item(0);
+            teComms = new sclTreeElem("Communication", ndComms, null, null, "", 0);
+            for (ndSubnet = getChildNode(ndComms, "SubNetwork"); ndSubnet != null; ndSubnet = getNextNode(ndSubnet, "SubNetwork")) {
+                varName = getAttribute(ndSubnet, "name");   // mandatory
+                teSubnet = new sclTreeElem("SubNetwork: " + varName, ndSubnet, null, varName, "", 0);
+                teComms.add(teSubnet);
+                for (ndAP = getChildNode(ndSubnet, "ConnectedAP"); ndAP != null; ndAP = getNextNode(ndAP, "ConnectedAP")) {
+                    varName = getAttribute(ndAP, "iedName");   // mandatory
+                    teAP = new sclTreeElem("ConnectedAP: " + varName, ndAP, null, varName, "", 0);
+                    teSubnet.add(teAP);
+                    nList = ndAP.getChildNodes();
+                    lenAP = nList.getLength();
+                    for (int i = 0; i < lenAP; i++) {
+                        ndChildAP = nList.item(i);
+                        if (ndChildAP.getNodeType() == Node.ELEMENT_NODE) {
+                            teChildAP = new sclTreeElem((nameChildAP = ndChildAP.getNodeName()), ndChildAP, null, null, "", 0);
+                            switch (nameChildAP) {
+                            case "Address":
+                                procAddress(ndChildAP, teChildAP);
+                                break;
+
+                            case "GSE":
+                                nList = ndChildAP.getChildNodes();
+                                lenGSE = nList.getLength();
+                                for (int j = 0; j < lenGSE; j++) {
+                                    ndChildGSE = nList.item(j);
+                                    if (ndChildGSE.getNodeType() == Node.ELEMENT_NODE) {
+                                        teChildGSE = new sclTreeElem((nameChildGSE = ndChildGSE.getNodeName()), ndChildGSE, null, null, "", 0);
+                                        switch (nameChildGSE) {
+                                        case "Address":
+                                            procAddress(ndChildGSE, teChildGSE);
+                                            break;
+
+                                        case "MinTime":
+                                        case "MaxTime":
+                                            String chval;
+                                            if (
+                                                    (ndChildGSE.getFirstChild() != null) &&
+                                                    ((chval = ndChildGSE.getFirstChild().getNodeValue()) != null)) {
+                                                teChildGSE.add(new sclTreeElem(chval, ndChildGSE, null, chval, "", 0));
+                                            }
+                                            break;
+
+                                        default:
+                                            break;
+                                        }
+                                        teChildAP.add(teChildGSE);
+                                    }
+                                }
+                                break;
+
+                            default:
+                                break;
+                            }
+                            teAP.add(teChildAP);
+                        }
+                    }
+                }
+            }
+            treeRoot.add(teComms);
+        }
+    }
+
+
+    private void procAddress(Node parent, sclTreeElem pte) {
+        Node ndP;
+        String ptype, chval;
+        sclTreeElem teP;
+
+        for (ndP = getChildNode(parent, "P"); ndP != null; ndP = getNextNode(ndP, "P")) {
+            ptype = getAttribute(ndP, "type");
+            teP = new sclTreeElem("P: " + ptype, ndP, null, ptype, "", 0);
+
+            if (
+                    (ndP.getFirstChild() != null) &&
+                    ((chval = ndP.getFirstChild().getNodeValue()) != null)) {
+                teP.add(new sclTreeElem(chval, ndP, null, chval, "", 0));
+            }
+            pte.add(teP);
+        }
+    }
+
+
     private void procIED(Document doc) {
         NodeList nList;
         String iedname;
         Node nd;
+        int iedcount;
 
         nList = doc.getElementsByTagName("IED");
-        int iedcount = nList.getLength();
-        switch (iedcount) {
-        case 0:     // System Specification Document (SSD) may contain no IED nodes
-            break;
-
-        case 1:
-            nd = nList.item(0);
-            iedname = getAttribute(nd, "name");
-            treeRoot = new sclTreeElem("IED: " + iedname, nd, null, iedname, "", 0);
-            visibleRoot = true;
-            procAP(nd, treeRoot);
-            break;
-
-        default:
-            treeRoot = new sclTreeElem("SCL", doc, null, null, "", 0);
-            visibleRoot = false;
+        if ((iedcount = nList.getLength()) > 0) {    // System Specification Document (SSD) may contain no IED nodes
             for (int i = 0; i < iedcount; i++) {
                 nd = nList.item(i);
                 iedname = getAttribute(nd, "name");
                 sclTreeElem iedte = new sclTreeElem("IED: " + iedname, nd, null, iedname, "", 0);
-                if ((SclMain.vflags & SclMain.FLAG_SERVICES) > 0)
+                if ((SclMain.vflags & SclMain.FLAG_SERVICES) > 0) {
                     procServices(nd, iedte);
+                }
                 procAP(nd, iedte);
                 treeRoot.add(iedte);
             }
-            break;
         }
     }
 
@@ -201,8 +340,8 @@ public class SCLtree_node {
         String apname;
 
         for (ndAP = getChildNode(parent, "AccessPoint"); ndAP != null; ndAP = getNextNode(ndAP, "AccessPoint")) {
-            apname = getAttribute(ndAP, "name");
-            sclTreeElem tnap = new sclTreeElem("AccessPoint", ndAP, null, apname, "", 0);
+            apname = getAttribute(ndAP, "name");    // Mandatory
+            sclTreeElem tnap = new sclTreeElem("AccessPoint: " + apname, ndAP, null, apname, "", 0);
 
             for (ndServ = getChildNode(ndAP, "Server"); ndServ != null; ndServ = getNextNode(ndServ, "Server")) {
                 //nname = servNode.getNodeName();
@@ -220,7 +359,6 @@ public class SCLtree_node {
         Node nd;
         int len;
         String ldname;
-
 
         if (children != null) {
             len = children.getLength();
@@ -248,7 +386,6 @@ public class SCLtree_node {
         int len;
         String lnClass, prefix, lnname, lninst, lnType;
 
-
         if (children != null) {
             len = children.getLength();
             for (int i = 0; i < len; i++) {
@@ -270,7 +407,7 @@ public class SCLtree_node {
                             //if (lninst.equals(""))
                             //    lninst = null;  // Make null if empty
                             //else
-                                lnname += lninst;
+                            lnname += lninst;
                         }
 
                         LnName sclname = new LnName(prefix, lnClass, lninst);
@@ -389,7 +526,7 @@ public class SCLtree_node {
 
         for (nd = getChildNode(ndTypeTemplates, "LNodeType"); nd != null; nd = getNextNode(nd, "LNodeType")) {
             if (getAttribute(nd, "id").equals(pte.type)) {
-                 procDODA(nd, pte);
+                procDODA(nd, pte);
             }
         }
     }
@@ -401,7 +538,7 @@ public class SCLtree_node {
         int len;
         String nName, dodaName, dodaType, bType;
 
-         if (children != null) {
+        if (children != null) {
             len = children.getLength();
             for (int i = 0; i < len; i++) {
                 nd = children.item(i);
@@ -446,7 +583,7 @@ public class SCLtree_node {
 
         for (nd = getChildNode(ndTypeTemplates, dodatype); nd != null; nd = getNextNode(nd, dodatype)) {
             if (getAttribute(nd, "id").equals(pte.type)) {
-                 procDODA(nd, pte);
+                procDODA(nd, pte);
             }
         }
     }
@@ -491,7 +628,7 @@ public class SCLtree_node {
                         continue;
                     if (!compareNames(((LnName) te.sclname).lnClass, ((dsContents) ds.sclname).lnClass))
                         continue;
-                     if (!compareNames(((LnName) te.sclname).lnInst, ((dsContents) ds.sclname).lnInst))
+                    if (!compareNames(((LnName) te.sclname).lnInst, ((dsContents) ds.sclname).lnInst))
                         continue;
 
                     proclinkDS(te, ds, ds, ((dsContents) ds.sclname).doName, FLAG_DO);
@@ -644,7 +781,6 @@ public class SCLtree_node {
         sclTreeElem te;
         int daflags = 0;
 
-
         for (te = current; te != null; te = (sclTreeElem) te.getParent()) {
             switch (te.flags & FLAG_TYMASK) {
             case FLAG_LD:
@@ -713,7 +849,7 @@ public class SCLtree_node {
         if (s1 != null) {
             if (s2 != null) {
                 if (s1.equals(s2))
-                     return true;
+                    return true;
             }
             else if (s1.isEmpty())
                 return true;

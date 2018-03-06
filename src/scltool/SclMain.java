@@ -29,6 +29,7 @@ import javax.swing.BoxLayout;
 import javax.swing.GroupLayout;
 import static javax.swing.GroupLayout.Alignment.CENTER;
 import static javax.swing.GroupLayout.Alignment.LEADING;
+import static javax.swing.GroupLayout.DEFAULT_SIZE;
 import static javax.swing.GroupLayout.PREFERRED_SIZE;
 import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
@@ -66,7 +67,6 @@ import org.xml.sax.SAXException;
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 /**
  *
  * @author dell
@@ -74,22 +74,24 @@ import org.xml.sax.SAXException;
 public class SclMain extends javax.swing.JFrame {
     protected final static int FLAG_SERVICES = 0x01;
     protected final static int FLAG_DSRCB = 0x02;
+    protected final static int FLAG_COMMS = 0x04;
     private static final String OUTPUTXML = "output.xml";
     private static final String SCHEMAFILE = "IEC61850cl.xsd";
     public static final JTextArea textAttrib = new JTextArea();
     public static final JTextArea textSelected = new JTextArea();
+    public static JTextArea textFind;
     SCLtree_node myTree;
     private Document scldoc;
-    private JMenuItem menuItemAbout;
-    private JMenuItem menuItemOpen;
-    private JMenuItem menuItemExit;
+    private JMenuItem menuItemAbout, menuItemOpen, menuItemExit;
     private JMenu menuShow;
-    private JCheckBoxMenuItem menuItemServices, menuItemDsRcb;
-    public static int vflags = FLAG_DSRCB;
-    private static final String SWVERSION = "V1.0";
+    private JCheckBoxMenuItem menuItemServices, menuItemDsRcb, menuItemComms, menuFind;
+    private static final JPanel panelFind = new JPanel();
+    protected static int vflags = FLAG_DSRCB | FLAG_COMMS;
+    protected static String SCLversion = "", SCLrevision = "";
+    private static final String SWVERSION = "V2.0";
     private static String buildDate = "Not available";
     private static final String MAINTITLE = "SCL browser";
-    private static final String COPYRIGHT = "© 2017 Londelec UK Ltd\nThis program comes with absolutely no warranty.";
+    private static final String COPYRIGHT = "© 2018 Londelec UK Ltd\nThis program comes with absolutely no warranty.";
     private static File lastpath;
     DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
     TableXml tableDI, tableAI, tableDO;
@@ -97,12 +99,17 @@ public class SclMain extends javax.swing.JFrame {
     private static final JButton buttonDel = new JButton("Delete");
     private static final JButton buttonExpXML = new JButton("Export XML");
     private static final JButton buttonExpCsv = new JButton("Export CSV");
+    private static final JButton buttonFind = new JButton("Find");
+    private static final JButton buttonFClear = new JButton("*");
     private static final JLabel labelDI = new JLabel("Digital Inputs");
     private static final JLabel labelAI = new JLabel("Analog Inputs");
     private static final JLabel labelDO = new JLabel("Digital Outputs");
     private static final JLabel fwversion = new JLabel("Firmware V?");
     private static final FileNameExtensionFilter cidfilter = new FileNameExtensionFilter("CID & SCD Files", "cid", "scd");
     private static final JScrollPane treePane = new JScrollPane();
+
+    public static final boolean DEBUGLOADFILE = false;
+
 
     /**
      * Creates new form SCLmain
@@ -111,7 +118,7 @@ public class SclMain extends javax.swing.JFrame {
         initComponents();
         initMenu();
         if (initSchemas() == false)
-             System.exit(0);
+            System.exit(0);
         initPanel();
         initRevision();
         //System.gc();
@@ -152,17 +159,17 @@ public class SclMain extends javax.swing.JFrame {
     private void initPanel() {
         JPanel panelText = new JPanel();
         JPanel panelTabs = new JPanel();
-        JPanel panelBut = new JPanel();
+        JPanel panelButt = new JPanel();
         JPanel panelSpring = new JPanel();
 
-
-        //createTree(new File("vamp300.cid"));
-        /*if ((scldoc = readFile(new File("H4_9021_L24.cid"))) != null) {
-            vflags |= FLAG_DSRCB;
-            createTree();
-        }*/
+        if (DEBUGLOADFILE) {
+            //createTree(new File("vamp300.cid"));
+            if ((scldoc = readFile(new File("H4_9021_L24.cid"), false)) != null) {
+                vflags |= FLAG_DSRCB;
+                createTree();
+            }
+        }
         treePane.setPreferredSize(new Dimension(200, 10));
-
 
         JScrollPane scrollDI = new JScrollPane(tableDI);
         JScrollPane scrollAI = new JScrollPane(tableAI);
@@ -173,44 +180,92 @@ public class SclMain extends javax.swing.JFrame {
         scrollAI.setPreferredSize(tdim);
         scrollDO.setPreferredSize(tdim);
 
-
         fwversion.setToolTipText("Compatible with leandc firmware version");
         buttonAdd.setEnabled(false);
         buttonAdd.setToolTipText("Add selected element to table");
         buttonAdd.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent ae) {
-                 buttonAddClick(ae);
+                buttonAddClick(ae);
             }
         });
         buttonDel.setToolTipText("Delete selected rows from all tables");
         buttonDel.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent ae) {
-                 buttonDelClick(ae);
+                buttonDelClick(ae);
             }
         });
         buttonExpXML.setToolTipText("Export configuration data to '" + OUTPUTXML + "' file");
         buttonExpXML.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent ae) {
-                 buttonExpClick(ae);
+                buttonExpClick(ae);
             }
         });
         buttonExpCsv.setToolTipText("Export configuration data to 'DI.csv', 'AI.csv', 'DO.csv' files");
         buttonExpCsv.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent ae) {
-                 buttonCsvClick(ae);
+                buttonCsvClick(ae);
             }
         });
         //FlowLayout fl = new FlowLayout(FlowLayout.CENTER);
         //panelBut.setLayout(fl);
-        panelBut.setLayout(new FlowLayout(FlowLayout.CENTER));
-        panelBut.add(buttonDel);
-        panelBut.add(buttonExpXML);
-        panelBut.add(buttonExpCsv);
+        panelButt.setLayout(new FlowLayout(FlowLayout.CENTER));
+        panelButt.add(buttonDel);
+        panelButt.add(buttonExpXML);
+        panelButt.add(buttonExpCsv);
 
+        textFind = new JTextArea();
+        textFind.setToolTipText("Enter text to search");
+        //Dimension aaa = textFind.getMaximumSize();
+        buttonFind.setToolTipText("Click to find entered text in the SCL tree");
+        buttonFind.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+                if (myTree != null) {
+                    myTree.filterTree(textFind.getText());
+                    treePane.setViewportView(myTree.scdTree);
+                }
+            }
+        });
+        buttonFClear.setToolTipText("Clear entered text");
+        buttonFClear.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+                if (!textFind.getText().isEmpty()) {
+                    textFind.setText("");
+                    if (myTree != null) {
+                        myTree.filterTree("");
+                        treePane.setViewportView(myTree.scdTree);
+                    }
+                }
+            }
+        });
+        TitledBorder tbFind = BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(), "Search", TitledBorder.DEFAULT_JUSTIFICATION, TitledBorder.TOP);
+        tbFind.setTitleFont(UIManager.getFont("TitledBorder.font").deriveFont(Font.PLAIN));
+        panelFind.setBorder(tbFind);
+        GroupLayout textfngl = new GroupLayout(panelFind);
+        panelFind.setLayout(textfngl);
+        textfngl.setHorizontalGroup(textfngl.createParallelGroup(CENTER)
+                .addComponent(textFind, 0, DEFAULT_SIZE, DEFAULT_SIZE)
+                .addGroup(textfngl.createSequentialGroup()
+                        .addComponent(buttonFind, PREFERRED_SIZE, PREFERRED_SIZE, PREFERRED_SIZE)
+                        .addGap(5)
+                        .addComponent(buttonFClear, PREFERRED_SIZE, PREFERRED_SIZE, PREFERRED_SIZE))
+        );
+        textfngl.setVerticalGroup(textfngl.createParallelGroup(LEADING)
+                .addGroup(textfngl.createSequentialGroup()
+                        .addComponent(textFind, 26, 26, 26)
+                        .addGap(3)
+                        .addGroup(textfngl.createParallelGroup(CENTER)
+                                .addComponent(buttonFind, PREFERRED_SIZE, PREFERRED_SIZE, PREFERRED_SIZE)
+                                .addComponent(buttonFClear, PREFERRED_SIZE, PREFERRED_SIZE, PREFERRED_SIZE))
+                        .addGap(3))
+        //.addContainerGap())
+        );
+        panelFind.setVisible(menuFind.getState());
 
         textAttrib.setPreferredSize(new Dimension(100, 200));
         //textAttrib.setMinimumSize(new Dimension(170, 200));
@@ -233,59 +288,58 @@ public class SclMain extends javax.swing.JFrame {
         GroupLayout textgl = new GroupLayout(panelText);
         panelText.setLayout(textgl);
         textgl.setHorizontalGroup(textgl.createParallelGroup(CENTER)
-            .addComponent(splitPane1)
-            .addComponent(buttonAdd, PREFERRED_SIZE, PREFERRED_SIZE, PREFERRED_SIZE)
-        );
-        textgl.setVerticalGroup(textgl.createParallelGroup(LEADING)
-            .addGroup(textgl.createSequentialGroup()
+                .addComponent(panelFind)
                 .addComponent(splitPane1)
                 .addComponent(buttonAdd, PREFERRED_SIZE, PREFERRED_SIZE, PREFERRED_SIZE)
-                .addContainerGap())
         );
-
+        textgl.setVerticalGroup(textgl.createParallelGroup(LEADING)
+                .addGroup(textgl.createSequentialGroup()
+                        .addComponent(panelFind)
+                        .addComponent(splitPane1)
+                        .addComponent(buttonAdd, PREFERRED_SIZE, PREFERRED_SIZE, PREFERRED_SIZE)
+                        .addContainerGap())
+        );
 
         SpringLayout slayout = new SpringLayout();
         panelSpring.setLayout(slayout);
         panelSpring.setMaximumSize(new Dimension(32767, 35));
-        panelSpring.add(panelBut);
+        panelSpring.add(panelButt);
         panelSpring.add(fwversion);
-        slayout.putConstraint(SpringLayout.HORIZONTAL_CENTER, panelBut, 0, SpringLayout.HORIZONTAL_CENTER, panelSpring);
+        slayout.putConstraint(SpringLayout.HORIZONTAL_CENTER, panelButt, 0, SpringLayout.HORIZONTAL_CENTER, panelSpring);
         slayout.putConstraint(SpringLayout.EAST, fwversion, -5, SpringLayout.EAST, panelSpring);
         slayout.putConstraint(SpringLayout.VERTICAL_CENTER, fwversion, 0, SpringLayout.VERTICAL_CENTER, panelSpring);
         //slayout.putConstraint(SpringLayout.VERTICAL_CENTER, panelBut, 0, SpringLayout.VERTICAL_CENTER, panelSpring);
-        slayout.putConstraint(SpringLayout.HEIGHT, panelSpring, 0, SpringLayout.HEIGHT, panelBut);
+        slayout.putConstraint(SpringLayout.HEIGHT, panelSpring, 0, SpringLayout.HEIGHT, panelButt);
         //Spring aaa = Spring.constant(0, -2, Spring.UNSET);
         //slayout.putConstraint(SpringLayout.WEST, fwversion, aaa, SpringLayout.EAST, panelBut);
-
 
         GroupLayout tabgl = new GroupLayout(panelTabs);
         panelTabs.setLayout(tabgl);
         //Dimension aaa = panelSpring.getPreferredSize();
         panelSpring.setPreferredSize(new Dimension(560, 35));
         tabgl.setHorizontalGroup(tabgl.createParallelGroup(CENTER)
-            .addGroup(tabgl.createParallelGroup(LEADING)
-                .addComponent(labelDI)
-                .addComponent(scrollDI))
-            .addGroup(tabgl.createParallelGroup(LEADING)
-                .addComponent(labelAI)
-                .addComponent(scrollAI))
-            .addGroup(tabgl.createParallelGroup(LEADING)
-                .addComponent(labelDO)
-                .addComponent(scrollDO))
-            .addComponent(panelSpring)
+                .addGroup(tabgl.createParallelGroup(LEADING)
+                        .addComponent(labelDI)
+                        .addComponent(scrollDI))
+                .addGroup(tabgl.createParallelGroup(LEADING)
+                        .addComponent(labelAI)
+                        .addComponent(scrollAI))
+                .addGroup(tabgl.createParallelGroup(LEADING)
+                        .addComponent(labelDO)
+                        .addComponent(scrollDO))
+                .addComponent(panelSpring)
         );
         tabgl.setVerticalGroup(tabgl.createParallelGroup(LEADING)
-            .addGroup(tabgl.createSequentialGroup()
-                .addComponent(labelDI)
-                .addComponent(scrollDI)
-                .addComponent(labelAI)
-                .addComponent(scrollAI)
-                .addComponent(labelDO)
-                .addComponent(scrollDO)
-                .addComponent(panelSpring)
-                .addContainerGap())
+                .addGroup(tabgl.createSequentialGroup()
+                        .addComponent(labelDI)
+                        .addComponent(scrollDI)
+                        .addComponent(labelAI)
+                        .addComponent(scrollAI)
+                        .addComponent(labelDO)
+                        .addComponent(scrollDO)
+                        .addComponent(panelSpring)
+                        .addContainerGap())
         );
-
 
         JSplitPane splitPane2 = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treePane, panelText);
         JSplitPane splitMain = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, splitPane2, panelTabs);
@@ -396,7 +450,6 @@ public class SclMain extends javax.swing.JFrame {
             return null;
         }
 
-
         try {
             nList = (NodeList) result.evaluate(doc, XPathConstants.NODESET);
         } catch (XPathExpressionException ex) {
@@ -431,7 +484,7 @@ public class SclMain extends javax.swing.JFrame {
             dBuilder = dbFactory.newDocumentBuilder();
             doc = dBuilder.parse(filename);
             doc.getDocumentElement().normalize();
-                //String sroot = doc.getDocumentElement().getNodeName();
+            //String sroot = doc.getDocumentElement().getNodeName();
         } catch (SAXException ex) {
             JOptionPane.showMessageDialog(this, ex.toString(), "Error", JOptionPane.ERROR_MESSAGE);
             //Logger.getLogger(SclMain.class.getName()).log(Level.SEVERE, null, ex);
@@ -486,7 +539,10 @@ public class SclMain extends javax.swing.JFrame {
         menuShow.add(menuItemServices);
         menuItemDsRcb = new JCheckBoxMenuItem("Datasets & Report Blocks");
         menuShow.add(menuItemDsRcb);
-        menuItemDsRcb.setState(((vflags & FLAG_DSRCB) == 0) ? false : true);
+        menuItemDsRcb.setState(((vflags & FLAG_DSRCB) > 0));
+        menuItemComms = new JCheckBoxMenuItem("Communication");
+        menuShow.add(menuItemComms);
+        menuItemComms.setState(((vflags & FLAG_COMMS) > 0));
 
         ActionListener alShow = new ActionListener() {
             @Override
@@ -496,6 +552,26 @@ public class SclMain extends javax.swing.JFrame {
         };
         menuItemServices.addActionListener(alShow);
         menuItemDsRcb.addActionListener(alShow);
+        menuItemComms.addActionListener(alShow);
+
+        menuFind = new JCheckBoxMenuItem("Find");
+        menuFind.setMnemonic(KeyEvent.VK_F);
+        menuFind.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+                if (!menuFind.getState()) {
+                    if (!textFind.getText().isEmpty()) {
+                        textFind.setText("");
+                        if (myTree != null) {
+                            myTree.filterTree("");
+                            treePane.setViewportView(myTree.scdTree);
+                        }
+                    }
+                }
+                panelFind.setVisible(menuFind.getState());
+            }
+        });
+        jMenuView.add(menuFind);
 
         menuItemExit = new JMenuItem("Exit", KeyEvent.VK_X);
         menuItemExit.addActionListener(new ActionListener() {
@@ -513,18 +589,28 @@ public class SclMain extends javax.swing.JFrame {
         JOptionPane.showMessageDialog(this, message, "About SCL tool", JOptionPane.PLAIN_MESSAGE);
     }
 
+
     private void actionOpen(ActionEvent ae) {
+        String edition = "";
+
         JFileChooser fc = new JFileChooser(lastpath);   // Navigate to the location of the last file open
         fc.setFileFilter(cidfilter);
         int returnVal = fc.showOpenDialog(this);
         if (returnVal == JFileChooser.APPROVE_OPTION) {
             lastpath = fc.getSelectedFile();
-            setTitle(lastpath.getName() + " - " + MAINTITLE);   // Sets dialo title
             if ((scldoc = readFile(lastpath, false)) != null) {
                 createTree();
+                if (SCLversion.equals("2007")) {
+                    edition = " [Edition 2]";
+                }
+                else {
+                    edition = " [Edition 1]";
+                }
             }
+            setTitle(lastpath.getName() + edition + " - " + MAINTITLE);   // Sets dialog title
         }
     }
+
 
     private void actionShow(ActionEvent ae) {
         Object src = ae.getSource();
@@ -546,9 +632,18 @@ public class SclMain extends javax.swing.JFrame {
                 vflags &= ~FLAG_DSRCB;
             }
         }
+        else if (src == menuItemComms) {
+            if (menuItemComms.getState()) {
+                vflags |= FLAG_COMMS;
+            }
+            else {
+                vflags &= ~FLAG_COMMS;
+            }
+        }
         if (scldoc != null)
             createTree();
     }
+
 
     private void actionExit(ActionEvent ae) {
         System.exit(0);
@@ -565,10 +660,9 @@ public class SclMain extends javax.swing.JFrame {
             jpath = jpath.substring(0, jpath.indexOf("!/"));
         }
         else {  // When Debugging
-            jpath = "jar:file:/home/dell/Documents/Electronics/java/SCLtool/dist/scltool.jar";
+            jpath = "jar:file:/home/dell/Documents/Firmware/java/SCLtool/dist/scltool.jar";
         }
         //System.out.println("trimmed " + filepath);
-
 
         try {
             jarFS = FileSystems.newFileSystem(URI.create(jpath), Collections.<String, Object>emptyMap());
@@ -579,12 +673,13 @@ public class SclMain extends javax.swing.JFrame {
             Logger.getLogger(SclMain.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-
         if (dLong > 0) {
             Date modDate = new Date(dLong);
             buildDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(modDate);
         }
     }
+
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -626,6 +721,7 @@ public class SclMain extends javax.swing.JFrame {
             .addGap(0, 427, Short.MAX_VALUE)
         );
     }// </editor-fold>//GEN-END:initComponents
+
 
     /**
      * @param args the command line arguments
