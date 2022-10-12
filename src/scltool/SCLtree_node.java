@@ -5,10 +5,15 @@
  */
 package scltool;
 
+import java.awt.Color;
+import java.awt.Component;
 import javax.swing.JTree;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import javax.swing.tree.TreeNode;
+import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -23,71 +28,83 @@ import org.w3c.dom.Element;
 public class SCLtree_node {
     private static final int FLAG_TIMESTAMP = 0x01;
     private static final int FLAG_QUALITY = 0x02;
-    private static final int FLAG_STRUCT = 0x04;
-    private static final int FLAG_DS = 0x080;
-    private static final int FLAG_DA = 0x100;
-    private static final int FLAG_DO = 0x200;
-    private static final int FLAG_LN = 0x400;
-    private static final int FLAG_LD = 0x800;
-    private static final int FLAG_TYMASK = 0xF80;
     private static final String S_FCDA = "FCDA";
+    public static enum sclEditions {SCL_ED1, SCL_ED2, SCL_ED21};
     public JTree scdTree;
+    public sclEditions scledition;
+    private final SclMain mainframe;
     private static boolean visibleRoot;
-    private static Node ndTypeTemplates;
-    private static sclTreeElem treeRoot = null;
+    private Node ndTypeTemplates;
+    private SclTreeElem treeRoot = null;
+    private static enum sclEnum {
+        SCL_SCL, SCL_IED, SCL_AP, SCL_AP_CH, SCL_SERV, SCL_SERV_CH,
+        SCL_COMMS, SCL_COM_CH, SCL_COM_P,
+        SCL_SUBST, SCL_SUB_CH,
+        SCL_SVCES, SCL_SVC_CH,
+        SCL_LD, SCL_LN, SCL_DO, SCL_DA, SCL_VAL,
+        SCL_RCB, SCL_RCB_CH, SCL_DS, SCL_FCDA
+    }
 
 
-    public SCLtree_node(Document xmldoc) {
+    public SCLtree_node(SclMain frame, Document xmldoc) {
+        mainframe = frame;
         procMain(xmldoc);
-        if (SclMain.textFind != null)
-            SclMain.textFind.setText("");   // Clear find text
         newTree(treeRoot);
     }
 
 
-    protected class sclTreeElem extends DefaultMutableTreeNode {
-        public Node xmlNode;
-        public String type;
-        //public Object[][] attrs;
+    private class SclTreeElem extends DefaultMutableTreeNode {
+        public Node xmlNode, xmlEnum;   // xmlNode must not be null
+        public String dtype;
         public Object sclname;
-        public String fc;
+        public String fc;               // null or FC string, don't use empty string ""
         public int flags = 0;
+        public sclEnum sclty;
+        public String errMsg;
+
+        public SclTreeElem(String name, Node nd, String dty, Object nm, sclEnum sty) {
+            super(name);        // Name to show in the tree e.g. 'LN: LLN0'
+            this.xmlNode = nd;  // XML DOM node
+            this.dtype = dty;   // Used to find Data Type Templates
+            this.sclname = nm;  // Name from SCL document, this is array of strings for LN names
+            this.sclty = sty;   // SCL type enum
+        }
 
 
-        public sclTreeElem(String name, Node nd, String ty, Object nm, String fcc, int fl) {
-            super(name);    // Name to show in the tree e.g. 'LN: LLN0'
-            xmlNode = nd;
-            type = ty;      // Type is used to find Data Type Templates
-            sclname = nm;   // Name from SCL document, this is array of strings for LN names
-            //attrs = loadAttributes(nd);
-            fc = fcc;
-            flags |= fl;
+        /**
+         * Must override because DefaultMutableTreeNode.getFirstChild() throws exception if there are no children
+         */
+        @Override
+        public TreeNode getFirstChild() {
+            if (this.getChildCount() > 0)
+                return super.getFirstChild();
+            return null;
         }
 
 
         public Object cloneDA() {
-            sclTreeElem newel, te;
+            SclTreeElem newel, te;
             int chcount;
 
-            newel = (sclTreeElem) super.clone();    // Clone this element
+            newel = (SclTreeElem) super.clone();    // Clone this element
 
             chcount = this.getChildCount();
 
             for (int i = 0; i < chcount; i++) { // Clone children
-                te = (sclTreeElem) this.getChildAt(i);
-                newel.add((sclTreeElem) te.cloneDA());
+                te = (SclTreeElem) this.getChildAt(i);
+                newel.add((SclTreeElem) te.cloneDA());
             }
             return newel;
         }
     }
 
 
-    protected class dsContents extends LnName {
+    private class FcdaContent extends LnName {
         public String ldInst;
         public String doName;
         public String daName;
 
-        public dsContents(String ldInst, String prefix, String lnClass, String lnInst, String doName, String daName) {
+        public FcdaContent(String ldInst, String prefix, String lnClass, String lnInst, String doName, String daName) {
             super(prefix, lnClass, lnInst);
             this.ldInst = ldInst;
             this.doName = doName;
@@ -96,89 +113,183 @@ public class SCLtree_node {
     }
 
 
-    private void newTree(sclTreeElem root) {
+    private class SclCellRenderer extends DefaultTreeCellRenderer {
+        @Override
+        public Component getTreeCellRendererComponent(JTree jtree, Object value, boolean selected, boolean expanded, boolean leaf, int row, boolean hasFocus) {
+            Component rcomp = super.getTreeCellRendererComponent(jtree, value, selected, expanded, leaf, row, hasFocus);
 
+            if (((SclTreeElem) value).errMsg != null) {
+                rcomp.setForeground(Color.RED);
+            }
+            return rcomp;
+        }
+    }
+
+
+    private class SclParser {
+        public String names[];
+        public sclEnum sclty;
+
+        public SclParser(String[] names, sclEnum sty) {
+            this.names = names;
+            this.sclty = sty;
+        }
+
+        public SclTreeElem parser(Element parent, boolean recur) {
+            return null;
+        }
+    }
+
+
+    private class ConnectedAPParser extends SclParser {
+        public ConnectedAPParser(String[] names, sclEnum sty) {
+            super(names, sty);
+        }
+
+        @Override
+        public SclTreeElem parser(Element parent, boolean recur) {
+            return new SclTreeElem(parent.getNodeName() + ": " + parent.getAttribute("iedName"), parent, null, null, this.sclty);
+        }
+    }
+
+
+    private class AddressPParser extends SclParser {
+        public AddressPParser(String[] names, sclEnum sty) {
+            super(names, sty);
+        }
+
+        @Override
+        public SclTreeElem parser(Element parent, boolean recur) {
+            Node nd;
+            String chval;
+
+            SclTreeElem te = new SclTreeElem("P: " + parent.getAttribute("type"), parent, null, null, this.sclty);
+
+            if (
+                    ((nd = parent.getFirstChild()) != null) &&
+                    ((chval = nd.getNodeValue()) != null)) {
+                te.add(new SclTreeElem(chval, nd, null, null, this.sclty));
+            }
+            return te;
+        }
+    }
+
+
+    private class GSETimeParser extends SclParser {
+        public GSETimeParser(String[] names, sclEnum sty) {
+            super(names, sty);
+        }
+
+        @Override
+        public SclTreeElem parser(Element parent, boolean recur) {
+            Node nd;
+            String chval;
+
+            SclTreeElem te = new SclTreeElem(parent.getNodeName(), parent, null, null, this.sclty);
+
+            if (
+                    ((nd = parent.getFirstChild()) != null) &&
+                    ((chval = nd.getNodeValue()) != null)) {
+                te.add(new SclTreeElem(chval, nd, null, null, this.sclty));
+            }
+            return te;
+        }
+    }
+
+
+    private void newTree(SclTreeElem root) {
         scdTree = new JTree(root);
         scdTree.setRootVisible(visibleRoot);
-        SclMain.newSelected(false);     // Clear selected text
-        SclMain.textAttrib.setText(""); // Clear attributes text
+        mainframe.actionSelected("", null, false);     // Clear selected text
 
         scdTree.addTreeSelectionListener(new TreeSelectionListener() {
             @Override
             public void valueChanged(TreeSelectionEvent e) {
-                sclTreeElem te = (sclTreeElem) scdTree.getLastSelectedPathComponent();
+                SclTreeElem te = (SclTreeElem) scdTree.getLastSelectedPathComponent();
 
                 /* if nothing is selected */
                 if (te == null)
                     return;
 
                 /* retrieve the node that was selected */
-                SclMain.textAttrib.setText(loadAttributes(te.xmlNode));
-                updateSelected(te);
+                mainframe.actionSelected(loadAttributes(te.xmlNode), te.errMsg, updateSelected(te));
             }
         });
 
-        //if (leafIcon != null) {
-        //DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
-        //Icon aaa = renderer.getDefaultLeafIcon();
-        //renderer.setOpenIcon(aaa);
-        //scdTree.setCellRenderer(renderer);
-        //}
+        scdTree.setCellRenderer(new SclCellRenderer());
     }
 
-
-    public void filterTree(String flt) {
+    // TODO search by Object reference e.g. LD0/LLN0.Mod
+    public void filterTree(String flt, boolean ignCase) {
         if (flt.isEmpty()) {
             newTree(treeRoot);
         }
         else {
-            sclTreeElem fte = (sclTreeElem) treeRoot.clone();    // Clone this element
-            filterTraverse(treeRoot, fte, flt.toUpperCase());
+            SclTreeElem fte = (SclTreeElem) treeRoot.clone();    // Clone this element
+            if (ignCase)
+                 flt = flt.toLowerCase();
+            filterTraverse(treeRoot, fte, flt, ignCase);
             newTree(fte);
         }
     }
 
-    private int filterTraverse(sclTreeElem pmte, sclTreeElem pfte, String flt) {
-        sclTreeElem mte, fte;
-        int included = 0;
+
+    private boolean filterTraverse(SclTreeElem pmte, SclTreeElem pfte, String flt, boolean ignCase) {
+        SclTreeElem mte, fte;
+        boolean included = false;
         String comp;
 
-        for (mte = (sclTreeElem) pmte.getFirstChild(); mte != null; mte = (sclTreeElem) mte.getNextSibling()) {
+        for (mte = (SclTreeElem) pmte.getFirstChild(); mte != null; mte = (SclTreeElem) mte.getNextSibling()) {
             if (mte.sclname != null) {
-                comp = mte.sclname.toString().toUpperCase();
-                if ((mte.flags & FLAG_LN) > 0) {
-                    comp = ((LnName) mte.sclname).prefix + ((LnName) mte.sclname).lnClass + ((LnName) mte.sclname).lnInst;
+                switch (mte.sclty) {
+                case SCL_LN:
+                    comp = "";
+                    if (((LnName) mte.sclname).prefix != null)
+                        comp += ((LnName) mte.sclname).prefix;
+                    if (((LnName) mte.sclname).lnClass != null)
+                        comp += ((LnName) mte.sclname).lnClass;
+                    if (((LnName) mte.sclname).lnInst != null)
+                        comp += ((LnName) mte.sclname).lnInst;
+                    break;
+
+                default:
+                    comp = mte.sclname.toString();
+                    break;
                 }
+
+                if (ignCase)
+                    comp = comp.toLowerCase();
+
                 if (comp.contains(flt)) {
-                    //pfte.add((sclTreeElem) mte.clone());
-                    pfte.add((sclTreeElem) mte.cloneDA());
-                    included = 1;
+                    pfte.add((SclTreeElem) mte.cloneDA());
+                    included = true;
                     continue;
                 }
             }
 
             if (mte.getChildCount() > 0) {
-                fte = (sclTreeElem) mte.clone();    // Clone this element
-                if (filterTraverse(mte, fte, flt) > 0) {
+                fte = (SclTreeElem) mte.clone();    // Clone this element
+                if (filterTraverse(mte, fte, flt, ignCase)) {
                     pfte.add(fte);
-                    included = 1;
+                    included = true;
                 }
             }
         }
         return included;
     }
 
+
     private void procMain(Document doc) {
         NodeList nList;
-        Element ndRoot;
+        Element el, ndRoot;
 
         ndRoot = doc.getDocumentElement();
-        SclMain.SCLversion = ndRoot.getAttribute("version");
-        SclMain.SCLrevision = ndRoot.getAttribute("revision");
-        treeRoot = new sclTreeElem("SCL", ndRoot, null, null, "", 0);
+        getEddition(ndRoot);
+        treeRoot = new SclTreeElem("SCL", ndRoot, null, null, sclEnum.SCL_SCL);
         visibleRoot = false;
         //visibleRoot = true;   // For Debug
 
+        /* Must be initialized first */
         nList = doc.getElementsByTagName("DataTypeTemplates");
         if (nList.getLength() == 1) {
             ndTypeTemplates = nList.item(0);
@@ -186,547 +297,770 @@ public class SCLtree_node {
         else
             return;
 
-        // Process Communication node
-        if ((SclMain.vflags & SclMain.FLAG_COMMS) > 0) {
-            procCommunication(doc);
-        }
+        for (el = getFirstElement(ndRoot); el != null; el = getNextElement(el)) {
+            switch (el.getNodeName()) {
+            case "IED":
+                procIED(el);
+                break;
 
-        // Process IED nodes
-        procIED(doc);
+            case "Communication":
+                if ((SclMain.vflags & SclMain.FLAG_COMMS) > 0)
+                    procCommunication(el);
+                break;
 
-        // Find DO and DA elements specified in datasets and clone them as children of the dataset
-        if ((SclMain.vflags & SclMain.FLAG_DSRCB) > 0)
-            procfindDS(treeRoot);
-    }
-
-
-    private void procCommunication(Document doc) {
-        Node ndComms, ndSubnet, ndAP, ndChildAP, ndChildGSE;
-        NodeList nList;
-        sclTreeElem teComms, teSubnet, teAP, teChildAP, teChildGSE;
-        int lenAP, lenGSE;
-        String nameChildAP, nameChildGSE, varName;
-
-        nList = doc.getElementsByTagName("Communication");
-        if (nList.getLength() == 1) {
-            ndComms = nList.item(0);
-            teComms = new sclTreeElem("Communication", ndComms, null, null, "", 0);
-            for (ndSubnet = getChildNode(ndComms, "SubNetwork"); ndSubnet != null; ndSubnet = getNextNode(ndSubnet, "SubNetwork")) {
-                varName = getAttribute(ndSubnet, "name");   // mandatory
-                teSubnet = new sclTreeElem("SubNetwork: " + varName, ndSubnet, null, varName, "", 0);
-                teComms.add(teSubnet);
-                for (ndAP = getChildNode(ndSubnet, "ConnectedAP"); ndAP != null; ndAP = getNextNode(ndAP, "ConnectedAP")) {
-                    varName = getAttribute(ndAP, "iedName");   // mandatory
-                    teAP = new sclTreeElem("ConnectedAP: " + varName, ndAP, null, varName, "", 0);
-                    teSubnet.add(teAP);
-                    nList = ndAP.getChildNodes();
-                    lenAP = nList.getLength();
-                    for (int i = 0; i < lenAP; i++) {
-                        ndChildAP = nList.item(i);
-                        if (ndChildAP.getNodeType() == Node.ELEMENT_NODE) {
-                            teChildAP = new sclTreeElem((nameChildAP = ndChildAP.getNodeName()), ndChildAP, null, null, "", 0);
-                            switch (nameChildAP) {
-                            case "Address":
-                                procAddress(ndChildAP, teChildAP);
-                                break;
-
-                            case "GSE":
-                                nList = ndChildAP.getChildNodes();
-                                lenGSE = nList.getLength();
-                                for (int j = 0; j < lenGSE; j++) {
-                                    ndChildGSE = nList.item(j);
-                                    if (ndChildGSE.getNodeType() == Node.ELEMENT_NODE) {
-                                        teChildGSE = new sclTreeElem((nameChildGSE = ndChildGSE.getNodeName()), ndChildGSE, null, null, "", 0);
-                                        switch (nameChildGSE) {
-                                        case "Address":
-                                            procAddress(ndChildGSE, teChildGSE);
-                                            break;
-
-                                        case "MinTime":
-                                        case "MaxTime":
-                                            String chval;
-                                            if (
-                                                    (ndChildGSE.getFirstChild() != null) &&
-                                                    ((chval = ndChildGSE.getFirstChild().getNodeValue()) != null)) {
-                                                teChildGSE.add(new sclTreeElem(chval, ndChildGSE, null, chval, "", 0));
-                                            }
-                                            break;
-
-                                        default:
-                                            break;
-                                        }
-                                        teChildAP.add(teChildGSE);
-                                    }
-                                }
-                                break;
-
-                            default:
-                                break;
-                            }
-                            teAP.add(teChildAP);
-                        }
-                    }
+            case "Substation":
+                if ((SclMain.vflags & SclMain.FLAG_SUBST) > 0) {
+                    SclTreeElem te = new SclTreeElem(el.getNodeName(), el, null, null, sclEnum.SCL_SUBST);
+                    copyChildren(el, te, null, sclEnum.SCL_SUB_CH, true);
+                    treeRoot.add(te);
                 }
+                break;
+
+            default:
+                break;
             }
-            treeRoot.add(teComms);
         }
     }
 
 
-    private void procAddress(Node parent, sclTreeElem pte) {
-        Node ndP;
-        String ptype, chval;
-        sclTreeElem teP;
+    private void procCommunication(Element parent) {
+        SclTreeElem te;
+        SclParser[] parsers = new SclParser[3];
 
-        for (ndP = getChildNode(parent, "P"); ndP != null; ndP = getNextNode(ndP, "P")) {
-            ptype = getAttribute(ndP, "type");
-            teP = new sclTreeElem("P: " + ptype, ndP, null, ptype, "", 0);
+        te = new SclTreeElem(parent.getNodeName(), parent, null, null, sclEnum.SCL_COMMS);
 
-            if (
-                    (ndP.getFirstChild() != null) &&
-                    ((chval = ndP.getFirstChild().getNodeValue()) != null)) {
-                teP.add(new sclTreeElem(chval, ndP, null, chval, "", 0));
-            }
-            pte.add(teP);
-        }
+        parsers[0] = new ConnectedAPParser(new String[] {"ConnectedAP"}, sclEnum.SCL_COM_CH);
+        parsers[1] = new AddressPParser(new String[] {"P"}, sclEnum.SCL_COM_P);
+        parsers[2] = new GSETimeParser(new String[] {"MinTime", "MaxTime"}, sclEnum.SCL_COM_CH);
+        copyChildren(parent, te, parsers, sclEnum.SCL_COM_CH, true);
+        treeRoot.add(te);
     }
 
 
-    private void procIED(Document doc) {
-        NodeList nList;
+    private void procIED(Element parent) {
+        Element el;
         String iedname;
-        Node nd;
-        int iedcount;
 
-        nList = doc.getElementsByTagName("IED");
-        if ((iedcount = nList.getLength()) > 0) {    // System Specification Document (SSD) may contain no IED nodes
-            for (int i = 0; i < iedcount; i++) {
-                nd = nList.item(i);
-                iedname = getAttribute(nd, "name");
-                sclTreeElem iedte = new sclTreeElem("IED: " + iedname, nd, null, iedname, "", 0);
-                if ((SclMain.vflags & SclMain.FLAG_SERVICES) > 0) {
-                    procServices(nd, iedte);
-                }
-                procAP(nd, iedte);
-                treeRoot.add(iedte);
+        if ((iedname = getAttrNull(parent, "name")) == null)
+            return;
+
+        SclTreeElem iedte = new SclTreeElem(parent.getNodeName() + ": " + iedname, parent, null, iedname, sclEnum.SCL_IED);
+
+        for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+            switch (el.getNodeName()) {
+            case "AccessPoint":
+                procAP(el, iedte);
+                break;
+
+            case "Services":
+                if ((SclMain.vflags & SclMain.FLAG_SERVICES) > 0)
+                    procServices(el, iedte);
+                break;
+
+            default:
+                break;
             }
         }
+
+        treeRoot.add(iedte);
+
+        // Resolve DS contents and show them as FCDA children
+        if ((SclMain.vflags & SclMain.FLAG_DSRCB) > 0)
+            populateDS(iedte, iedte);
     }
 
 
-    private void procServices(Node parent, sclTreeElem pte) {
-        Node ndServ, nd;
-        NodeList children;
-        int len;
+    private void procServices(Element parent, SclTreeElem pte) {
 
-        if ((ndServ = getChildNode(parent, "Services")) != null) {
-            sclTreeElem servte = new sclTreeElem("Services", ndServ, null, null, "", 0);
-            children = ndServ.getChildNodes();
-            len = children.getLength();
-            for (int i = 0; i < len; i++) {
-                nd = children.item(i);
-                if (nd.getNodeType() == Node.ELEMENT_NODE) {
-                    sclTreeElem te = new sclTreeElem(nd.getNodeName(), nd, null, null, "", 0);
-                    servte.add(te);
-                }
-            }
-            pte.add(servte);
-        }
+        SclTreeElem te = new SclTreeElem(parent.getNodeName(), parent, null, null, sclEnum.SCL_SVCES);
+
+        copyChildren(parent, te, null, sclEnum.SCL_SVC_CH, true);
+        pte.add(te);
     }
 
 
-    private void procAP(Node parent, sclTreeElem pte) {
-        Node ndAP, ndServ;
+    private void procAP(Element parent, SclTreeElem pte) {
+        Element el;
         String apname;
 
-        for (ndAP = getChildNode(parent, "AccessPoint"); ndAP != null; ndAP = getNextNode(ndAP, "AccessPoint")) {
-            apname = getAttribute(ndAP, "name");    // Mandatory
-            sclTreeElem tnap = new sclTreeElem("AccessPoint: " + apname, ndAP, null, apname, "", 0);
+        if ((apname = getAttrNull(parent, "name")) == null)    // Mandatory
+            return;
 
-            for (ndServ = getChildNode(ndAP, "Server"); ndServ != null; ndServ = getNextNode(ndServ, "Server")) {
-                //nname = servNode.getNodeName();
-                sclTreeElem tnserv = new sclTreeElem("Server", ndServ, null, null, "", 0);
-                procLD(ndServ, tnserv);
-                tnap.add(tnserv);
+        SclTreeElem apte = new SclTreeElem(parent.getNodeName() + ": " + apname, parent, null, apname, sclEnum.SCL_AP);
+
+        for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+            switch (el.getNodeName()) {
+            case "Server":
+                procServer(el, apte);
+                break;
+
+            case "Services":
+                if ((SclMain.vflags & SclMain.FLAG_SERVICES) > 0)
+                    procServices(el, apte);
+                break;
+
+            case "ServerAt":
+            case "GOOSESecurity":
+            case "SMVSecurity":
+                SclTreeElem te = new SclTreeElem(el.getNodeName(), el, null, null, sclEnum.SCL_AP_CH);
+                copyChildren(el, te, null, sclEnum.SCL_AP_CH, true);
+                apte.add(te);
+                break;
+
+            case "LN":  /* Implement multiple LNs */
+                break;
+
+            default:
+                break;
             }
-            pte.add(tnap);
         }
+        pte.add(apte);
     }
 
 
-    private void procLD(Node parent, sclTreeElem pte) {
-        NodeList children = parent.getChildNodes();
-        Node nd;
-        int len;
+    private void procServer(Element parent, SclTreeElem pte) {
+        Element el;
+        SclTreeElem servte = new SclTreeElem(parent.getNodeName(), parent, null, null, sclEnum.SCL_SERV);
+
+        for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+            switch (el.getNodeName()) {
+            case "LDevice":
+                procLD(el, servte);
+                break;
+
+            case "Authentication":
+            case "Association":
+                SclTreeElem te = new SclTreeElem(el.getNodeName(), el, null, null, sclEnum.SCL_SERV_CH);
+                copyChildren(el, te, null, sclEnum.SCL_SERV_CH, true);
+                servte.add(te);
+                break;
+
+            default:
+                break;
+            }
+        }
+        pte.add(servte);
+    }
+
+
+    private void procLD(Element parent, SclTreeElem pte) {
+        Element el;
         String ldname;
 
-        if (children != null) {
-            len = children.getLength();
-            for (int i = 0; i < len; i++) {
-                nd = children.item(i);
-                switch (nd.getNodeName()) {
-                case "LDevice":
-                    if ((ldname = getAttribute(nd, "inst")) != null) {
-                        sclTreeElem te = new sclTreeElem("LD: " + ldname, nd, null, ldname, "", FLAG_LD);
-                        procLN(nd, te);
-                        pte.add(te);
-                    }
-                    break;
-                default:
-                    break;
-                }
+        if ((ldname = getAttrNull(parent, "inst")) == null)
+            return;
+
+        SclTreeElem ldte = new SclTreeElem("LD: " + ldname, parent, null, ldname, sclEnum.SCL_LD);
+
+        for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+            switch (el.getNodeName()) {
+            case "LN":
+            case "LN0":
+                procLN(el, ldte);
+                break;
+
+            case "AccessControl":   /* Implement tAnyContentFromOtherNamespace */
+                break;
+
+            default:
+                break;
             }
         }
+        pte.add(ldte);
     }
 
 
-    private void procLN(Node parent, sclTreeElem pte) {
-        NodeList children = parent.getChildNodes();
-        Node nd;
-        int len;
+    private void procLN(Element parent, SclTreeElem pte) {
+        Element el, tn;
         String lnClass, prefix, lnname, lninst, lnType;
 
-        if (children != null) {
-            len = children.getLength();
-            for (int i = 0; i < len; i++) {
-                nd = children.item(i);
-                switch (nd.getNodeName()) {
-                case "LN":
-                case "LN0":
-                    if ((lnClass = getAttribute(nd, "lnClass")) != null) {
-                        prefix = getAttribute(nd, "prefix");
-                        lninst = getAttribute(nd, "inst");
-                        lnType = getAttribute(nd, "lnType");
+        if ((lnClass = getAttrNull(parent, "lnClass")) == null)
+            return;
+        if ((lnType = getAttrNull(parent, "lnType")) == null)
+            return;
 
-                        lnname = "LN: ";
-                        if (prefix != null) {
-                            lnname += prefix;
-                        }
-                        lnname += lnClass;
-                        if (lninst != null) {
-                            //if (lninst.equals(""))
-                            //    lninst = null;  // Make null if empty
-                            //else
-                            lnname += lninst;
-                        }
+        prefix = parent.getAttribute("prefix");
+        lninst = parent.getAttribute("inst");
+        lnname = "LN: ";
+        lnname += prefix;
+        lnname += lnClass;
+        lnname += lninst;
 
-                        LnName sclname = new LnName(prefix, lnClass, lninst);
-                        sclTreeElem te = new sclTreeElem(lnname, nd, lnType, sclname, "", FLAG_LN);
-                        if ((SclMain.vflags & SclMain.FLAG_DSRCB) > 0) {
-                            procRCB(nd, te);
-                            procDS(nd, te);
-                        }
-                        procLNtypes(te);
-                        procDOI(nd, te, "DOI");
-                        pte.add(te);
-                    }
+        LnName sclname = new LnName(prefix, lnClass, lninst);
+        SclTreeElem te = new SclTreeElem(lnname, parent, lnType, sclname, sclEnum.SCL_LN);
+
+        for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+            switch (el.getNodeName()) {
+            case "DataSet":
+                if ((SclMain.vflags & SclMain.FLAG_DSRCB) > 0)
+                    procDS(el, te);
+                break;
+
+            case "ReportControl":
+                if ((SclMain.vflags & SclMain.FLAG_DSRCB) > 0)
+                    procRCB(el, te);
+                break;
+
+            default:
+                break;
+            }
+        }
+
+        if ((tn = getDataType(te, "LNodeType")) != null) {
+            procDODA(tn, te);
+            copyAttributes(tn, (Element) te.xmlNode, "id"); // Copy <LNodeType> => <LDevice><LN></LDevice> (this is pointed to by 'te.xmlNode' and its attributes are shown in textbox)
+
+            for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+                switch (el.getNodeName()) {
+                case "DOI":
+                    procDOI(el, te);
                     break;
 
                 default:
                     break;
                 }
             }
+            pte.add(te);
         }
     }
 
 
-    private void procDOI(Node parent, sclTreeElem pte, String name) {
-        Node nddoi;
-        String doname;
-        sclTreeElem te;
+    private void procDOI(Element parent, SclTreeElem pte) {
+        Element el;
+        String name;
+        SclTreeElem te;
 
-        for (nddoi = getChildNode(parent, name); nddoi != null; nddoi = getNextNode(nddoi, name)) {
-            doname = getAttribute(nddoi, "name");
-            for (int i = 0; i < pte.getChildCount(); i++) {
-                te = (sclTreeElem) pte.getChildAt(i);
-                if (doname.equals(te.sclname)) {
-                    procDOI(nddoi, te, "SDI");
-                    procDAI(nddoi, te);
-                }
-            }
-        }
-    }
+        if ((name = getAttrNull(parent, "name")) == null)   // use="required"
+            return;
 
+        for (int i = 0; i < pte.getChildCount(); i++) {
+            te = (SclTreeElem) pte.getChildAt(i);
+            if (name.equals(te.sclname)) {
+                copyAttributes(parent, (Element) te.xmlNode, "name");   // Copy <DOI> => <LNodeType><DO></LNodeType> (this is pointed to by 'te.xmlNode' and its attributes are shown in textbox)
+                for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+                    switch (el.getNodeName()) {
+                    case "SDI":
+                        procDOI(el, te);
+                        break;
 
-    private void procDAI(Node parent, sclTreeElem pte) {
-        Node nddai, ndval;
-        String daname, val;
-        sclTreeElem te;
+                    case "DAI":
+                        procDAI(el, te);
+                        break;
 
-        for (nddai = getChildNode(parent, "DAI"); nddai != null; nddai = getNextNode(nddai, "DAI")) {
-            daname = getAttribute(nddai, "name");
-            for (int i = 0; i < pte.getChildCount(); i++) {
-                te = (sclTreeElem) pte.getChildAt(i);
-                if (daname.equals(te.sclname)) {
-                    for (ndval = getChildNode(nddai, "Val"); ndval != null; ndval = getNextNode(ndval, "Val")) {
-                        if (
-                                (ndval.getFirstChild() != null) &&
-                                ((val = ndval.getFirstChild().getNodeValue()) != null)) {
-                            sclTreeElem vale = new sclTreeElem(val, ndval, daname, val, "", 0);
-                            te.add(vale);
-                        }
+                    default:
+                        break;
                     }
                 }
+                return;
             }
         }
     }
 
 
-    private void procRCB(Node parent, sclTreeElem pte) {
-        Node nd;
+    private void procDAI(Element parent, SclTreeElem pte) {
         String name;
+        SclTreeElem te;
 
-        for (nd = getChildNode(parent, "ReportControl"); nd != null; nd = getNextNode(nd, "ReportControl")) {
-            name = getAttribute(nd, "name");
-            sclTreeElem te = new sclTreeElem("RCB: " + name, nd, "ReportControl", name, "", 0);
-            addChildNode(nd, te, "TrgOps");
-            addChildNode(nd, te, "OptFields");
-            addChildNode(nd, te, "RptEnabled");
-            pte.add(te);
-        }
-    }
+        if ((name = getAttrNull(parent, "name")) == null)   // use="required"
+            return;
 
-
-    private void procDS(Node parent, sclTreeElem pte) {
-        Node nd, fnd;
-        String name, fcc, fcda;
-        String ldInst, prefix, lnClass, lnInst, doName, daName;
-
-        for (nd = getChildNode(parent, "DataSet"); nd != null; nd = getNextNode(nd, "DataSet")) {
-            name = getAttribute(nd, "name");
-            sclTreeElem te = new sclTreeElem("DS: " + name, nd, "DataSet", name, "", 0);
-            for (fnd = getChildNode(nd, S_FCDA); fnd != null; fnd = getNextNode(fnd, S_FCDA)) {
-                fcda = "";
-                if ((ldInst = getAttribute(fnd, "ldInst")) != null)
-                    fcda += ldInst + "/";
-                if ((prefix = getAttribute(fnd, "prefix")) != null)
-                    fcda += prefix;
-                if ((lnClass = getAttribute(fnd, "lnClass")) != null)
-                    fcda += lnClass;
-                if ((lnInst = getAttribute(fnd, "lnInst")) != null)
-                    fcda += lnInst;
-                if ((doName = getAttribute(fnd, "doName")) != null)
-                    fcda += "." + doName;
-                if ((daName = getAttribute(fnd, "daName")) != null)
-                    fcda += "." + daName;
-                fcc = getAttribute(fnd, "fc");
-                fcda += " [" + fcc + "]";
-
-                dsContents sclname = new dsContents(ldInst, prefix, lnClass, lnInst, doName, daName);
-                sclTreeElem fte = new sclTreeElem(fcda, fnd, S_FCDA, sclname, fcc, FLAG_DS);
-                te.add(fte);
-            }
-            pte.add(te);
-        }
-    }
-
-
-    private void procLNtypes(sclTreeElem pte) {
-        Node nd;
-
-        for (nd = getChildNode(ndTypeTemplates, "LNodeType"); nd != null; nd = getNextNode(nd, "LNodeType")) {
-            if (getAttribute(nd, "id").equals(pte.type)) {
-                procDODA(nd, pte);
+        for (int i = 0; i < pte.getChildCount(); i++) {
+            te = (SclTreeElem) pte.getChildAt(i);
+            if (name.equals(te.sclname)) {
+                copyAttributes(parent, (Element) te.xmlNode, "name");   // Copy <DAI> => <DOType><DA></DOType> (this is pointed to by 'te.xmlNode' and its attributes are shown in textbox)
+                procDAvals(parent, te, true);   // Overwrite existing <Val>s specified in template <DA>
+                return;
             }
         }
     }
 
 
-    private void procDODA(Node parent, sclTreeElem pte) {
-        NodeList children = parent.getChildNodes();
-        Node nd;
-        int len;
+    private void procDODA(Element parent, SclTreeElem pte) {
+        Element el, tn;
         String nName, dodaName, dodaType, bType;
 
-        if (children != null) {
-            len = children.getLength();
-            for (int i = 0; i < len; i++) {
-                nd = children.item(i);
-                nName = nd.getNodeName();
-                switch (nName) {
-                case "DO":      // DO can only appear in <LNodeType> node
-                case "SDO":     // SDO can only appear in <DOType> node
-                    if (
-                            ((dodaName = getAttribute(nd, "name")) != null) &&
-                            ((dodaType = getAttribute(nd, "type")) != null)) {
-                        sclTreeElem tn = new sclTreeElem(nName + ": " + dodaName, nd, dodaType, dodaName, "", FLAG_DO);
-                        procDODAtypes(tn, "DOType");
-                        pte.add(tn);
-                    }
-                    break;
+        for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+            switch (nName = el.getNodeName()) {
+            case "DO":      // DO can only appear in <LNodeType> node
+            case "SDO":     // SDO can only appear in <DOType> node
+                if (
+                        ((dodaName = getAttrNull(el, "name")) != null) &&   // use="required"
+                        ((dodaType = getAttrNull(el, "type")) != null)) {   // use="required"
 
-                case "DA":      // DA can only appear in <DOType> node
-                case "BDA":     // BDA can only appear in <DAType> node
-                    if ((dodaName = getAttribute(nd, "name")) != null) {
-                        if ((bType = getAttribute(nd, "bType")) != null) {
-                            dodaType = getAttribute(nd, "type");
-                            int flags = procFlags(bType) | FLAG_DA;
-                            sclTreeElem tn = new sclTreeElem(nName + ": " + dodaName, nd, dodaType, dodaName, getAttribute(nd, "fc"), flags);
-                            if (dodaType != null) {
-                                procDODAtypes(tn, "DAType");
+                    SclTreeElem te = new SclTreeElem(nName + ": " + dodaName, el, dodaType, dodaName, sclEnum.SCL_DO);
+
+                    if ((tn = getDataType(te, "DOType")) != null) {
+                        copyAttributes(tn, (Element) te.xmlNode, "id"); // Copy <DOType> => <LNodeType><DO></LNodeType> (this is pointed to by 'te.xmlNode' and its attributes are shown in textbox)
+                        procDODA(tn, te);
+                        pte.add(te);
+                    }
+                }
+                break;
+
+            case "DA":      // DA can only appear in <DOType> node
+            case "BDA":     // BDA can only appear in <DAType> node
+                if (
+                        ((dodaName = getAttrNull(el, "name")) != null) &&   // use="required"
+                        ((bType = getAttrNull(el, "bType")) != null)) {     // use="required"
+
+                    dodaType = getAttrNull(el, "type");    // Only used if bType="Enum" or bType="Struct"
+                    SclTreeElem te = new SclTreeElem(nName + ": " + dodaName, el, dodaType, dodaName, sclEnum.SCL_DA);
+                    te.fc = getAttrNull(el, "fc");  // use="required" for <DA>
+                    te.flags = procFlags(bType);
+                    procDAvals(el, te, false);
+
+                    if (dodaType != null) {
+                        switch (bType) {
+                        case "Struct":
+                            if ((tn = getDataType(te, "DAType")) != null) {
+                                copyAttributes(tn, (Element) te.xmlNode, "id"); // Copy <DAType> => <DOType><DA></DOType> (this is pointed to by 'te.xmlNode' and its attributes are shown in textbox)
+                                procDODA(tn, te);
+                                pte.add(te);
                             }
-                            pte.add(tn);
+                            break;
+
+                        case "Enum":
+                            if ((te.xmlEnum = getDataType(te, "EnumType")) != null) {
+                                pte.add(te);
+                            }
+                            break;
+
+                        default:
+                            break;
                         }
                     }
-                    break;
+                    else
+                        pte.add(te);
+                }
+                break;
 
-                default:
+            default:
+                break;
+            }
+        }
+    }
+
+
+    private void procDAvals(Element parent, SclTreeElem pte, boolean overwrite) {
+        Element el;
+        String val;
+
+        if (overwrite) {
+            for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+                if (el.getNodeName().equals("Val")) {
+                    pte.removeAllChildren();
                     break;
+                }
+            }
+        }
+
+        for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+            if (el.getNodeName().equals("Val")) {
+                if (
+                        (el.getFirstChild() != null) &&
+                        ((val = el.getFirstChild().getNodeValue()) != null)) {
+                    pte.add(new SclTreeElem(val, el, null, null, sclEnum.SCL_VAL));
                 }
             }
         }
     }
 
 
-    private void procDODAtypes(sclTreeElem pte, String dodatype) {
-        Node nd;
+    private void procRCB(Element parent, SclTreeElem pte) {
+        String name;
 
-        for (nd = getChildNode(ndTypeTemplates, dodatype); nd != null; nd = getNextNode(nd, dodatype)) {
-            if (getAttribute(nd, "id").equals(pte.type)) {
-                procDODA(nd, pte);
-            }
-        }
+        if ((name = getAttrNull(parent, "name")) == null)
+            return;
+
+        SclTreeElem te = new SclTreeElem("RCB: " + name, parent, null, name, sclEnum.SCL_RCB);
+        copyChildren(parent, te, null, sclEnum.SCL_RCB_CH, false);
+        pte.add(te);
     }
 
 
-    private void procfindDS(sclTreeElem pte) {
-        sclTreeElem te;
-        int chcount = pte.getChildCount();
+    private void procDS(Element parent, SclTreeElem pte) {
+        Element el;
+        String name, fcc, fcdan;
+        String ldInst, prefix, lnClass, lnInst, doName, daName;
 
-        for (int i = 0; i < chcount; i++) {
-            te = (sclTreeElem) pte.getChildAt(i);
+        if ((name = getAttrNull(parent, "name")) == null)
+            return;
 
-            if ((te.flags & FLAG_DS) > 0) {   // This is a Dataset
-                proclinkDS(treeRoot, te, te, null, FLAG_LD);
+        SclTreeElem dste = new SclTreeElem("DS: " + name, parent, null, name, sclEnum.SCL_DS);
+
+        for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+            if (!S_FCDA.equals(el.getNodeName()))
+                continue;
+
+            fcdan = "";
+            if ((ldInst = getAttrNull(el, "ldInst")) != null)
+                fcdan += ldInst + "/";
+            else
+                fcdan += "*/";
+
+            if ((lnClass = getAttrNull(el, "lnClass")) != null) {
+                prefix = el.getAttribute("prefix");
+                fcdan += prefix;
+
+                fcdan += lnClass;
+
+                lnInst = el.getAttribute("lnInst");
+                fcdan += lnInst;
             }
             else {
-                procfindDS(te);
+                prefix = null;
+                lnInst = null;
+                fcdan += "*";
+            }
+
+            if ((doName = getAttrNull(el, "doName")) != null)
+                fcdan += "." + doName;
+
+            if ((daName = getAttrNull(el, "daName")) != null)
+                fcdan += "." + daName;
+
+            if ((fcc = getAttrNull(el, "fc")) == null)
+                fcc = "?";
+            fcdan += " [" + fcc + "]";
+
+            FcdaContent sclname = new FcdaContent(ldInst, prefix, lnClass, lnInst, doName, daName);
+            SclTreeElem te = new SclTreeElem(fcdan, el, null, sclname, sclEnum.SCL_FCDA);
+            te.fc = fcc;
+            dste.add(te);
+        }
+        pte.add(dste);
+    }
+
+
+    private Element getDataType(SclTreeElem pte, String nType) {
+        Element el;
+
+        for (el = getFirstElement(ndTypeTemplates); el != null; el = getNextElement(el)) {
+            if (nType.equals(el.getNodeName())) {
+                if (pte.dtype.equals(el.getAttribute("id")))
+                    return el;
+            }
+        }
+        return null;
+    }
+
+
+    private void populateDS(SclTreeElem iedte, SclTreeElem pte) {
+        SclTreeElem te;
+        int chcount = pte.getChildCount();
+
+        for (int i = 0; i < chcount; i++) {
+            te = (SclTreeElem) pte.getChildAt(i);
+
+            switch (pte.sclty) {
+            case SCL_DS:
+                resolveFCDA(iedte, te, te, null, null);
+                if (te.getChildCount() == 0) {
+                    if (te.errMsg == null)
+                        te.errMsg = "FCDA is not found";
+                }
+                break;
+
+            case SCL_LN:
+                if (te.sclty == sclEnum.SCL_DS)
+                     populateDS(iedte, te);
+                break;
+
+            default:
+                populateDS(iedte, te);
+                break;
             }
         }
     }
 
 
-    private void proclinkDS(sclTreeElem pte, sclTreeElem ds, sclTreeElem newp, String doname, int level) {
-        sclTreeElem te, newel;
+    private void resolveFCDA(SclTreeElem pte, SclTreeElem fcdae, SclTreeElem newp, String doref, String daref) {
+        SclTreeElem te, newel;
         int chcount = pte.getChildCount();
-        int dot;
+        int delim;
+        String doname = null, daname = null, chdon = null, chdan = null;
 
         for (int i = 0; i < chcount; i++) {
-            te = (sclTreeElem) pte.getChildAt(i);
+            te = (SclTreeElem) pte.getChildAt(i);
 
-            if ((te.flags & level) > 0) {   // Required level found
-                switch (level) {
-                case FLAG_LD:
-                    if (compareNames((String) te.sclname, ((dsContents) ds.sclname).ldInst)) {
-                        proclinkDS(te, ds, ds, null, FLAG_LN);
+            switch (te.sclty) {
+            case SCL_LD:
+                if (((FcdaContent) fcdae.sclname).ldInst != null) {
+                    if (compareNameRef((String) te.sclname, ((FcdaContent) fcdae.sclname).ldInst, false)) {
+                        resolveFCDA(te, fcdae, fcdae, null, null);
                         return;
                     }
-                    break;
+                }
+                else { // FCDA doesn't have ldInst=""
+                    newel = (SclTreeElem) te.clone();
+                    resolveFCDA(te, fcdae, newel, null, null);
 
-                case FLAG_LN:
-                    if (!compareNames(((LnName) te.sclname).prefix, ((dsContents) ds.sclname).prefix))
-                        continue;
-                    if (!compareNames(((LnName) te.sclname).lnClass, ((dsContents) ds.sclname).lnClass))
-                        continue;
-                    if (!compareNames(((LnName) te.sclname).lnInst, ((dsContents) ds.sclname).lnInst))
-                        continue;
-
-                    proclinkDS(te, ds, ds, ((dsContents) ds.sclname).doName, FLAG_DO);
-                    return;
-
-                case FLAG_DO:
-                    if (doname != null) {    // DO name passed as argument
-                        if ((dot = doname.indexOf('.')) != -1) {     // Structured name, contains dot '.'
-                            if (compareNames((String) te.sclname, doname.substring(0, dot))) {
-                                proclinkDS(te, ds, newp, doname.substring(dot + 1), FLAG_DO);
-                                return;
-                            }
-                        }
-                        else {  // Name doesn't contain dot '.'
-                            if (compareNames((String) te.sclname, doname)) {
-                                proclinkDS(te, ds, newp, null, FLAG_DO);
-                                if (newp.getChildCount() == 0) {
-                                    proclinkDS(te, ds, newp, ((dsContents) ds.sclname).daName, FLAG_DA);
-                                }
-                                return;
-                            }
-                        }
-                    }
-                    else {  // DO name not passed, add all DOs at this level. This happens when dataset contains structured name e.g. 'PPV'
-                        newel = (sclTreeElem) te.clone();
-                        proclinkDS(te, ds, newel, ((dsContents) ds.sclname).daName, FLAG_DA);
+                    if (newel.getChildCount() > 0)
                         newp.add(newel);
-                    }
-                    break;
-
-                case FLAG_DA:
-                    if (((dsContents) ds.sclname).daName != null) {
-                        if (!compareNames((String) te.sclname, ((dsContents) ds.sclname).daName))
-                            continue;
-                    }
-
-                    if (ds.fc.equals(te.fc)) {
-                        newp.add((sclTreeElem) te.cloneDA());
-                    }
-                    break;
                 }
-            }
-            else {
-                proclinkDS(te, ds, newp, doname, level);
-            }
-        }
-    }
+                break;
 
+            case SCL_LN:
+                if (((FcdaContent) fcdae.sclname).lnClass != null) {
+                    if (!compareNameRef(((LnName) te.sclname).prefix, ((FcdaContent) fcdae.sclname).prefix, false))
+                        continue;
+                    if (!compareNameRef(((LnName) te.sclname).lnClass, ((FcdaContent) fcdae.sclname).lnClass, false))
+                        continue;
+                    if (!compareNameRef(((LnName) te.sclname).lnInst, ((FcdaContent) fcdae.sclname).lnInst, false))
+                        continue;
 
-    private Node getChildNode(Node parent, String name) {
-        NodeList children = parent.getChildNodes();
-        Node nd;
-        int len;
-
-        if (children != null) {
-            len = children.getLength();
-            for (int i = 0; i < len; i++) {
-                nd = children.item(i);
-                if (nd.getNodeName().equals(name)) {
-                    return nd;
+                    resolveFCDA(te, fcdae, fcdae, ((FcdaContent) fcdae.sclname).doName, null);
+                    return;
                 }
+                else { // FCDA doesn't have lnClass=""
+                    newel = (SclTreeElem) te.clone();
+                    resolveFCDA(te, fcdae, newel, ((FcdaContent) fcdae.sclname).doName, null);
+
+                    if (newel.getChildCount() > 0)
+                        newp.add(newel);
+                }
+                break;
+
+            case SCL_DO:
+                if (doref != null) {    // DO name passed as argument
+                    if (doname == null) {
+                        if ((delim = doref.indexOf('.')) > -1) {     // Structured name, contains dot '.'
+                            doname = doref.substring(0, delim);
+                            chdon = doref.substring(delim + 1);
+                        }
+                        else
+                            doname = doref;
+                    }
+
+                    if (compareNameRef((String) te.sclname, doname, true)) {
+                        if (!checkArrayRef(fcdae, te, doname))
+                            return;
+
+                        resolveFCDA(te, fcdae, newp, chdon, ((FcdaContent) fcdae.sclname).daName);
+                        return;
+                    }
+                }
+                else {  // DO name not passed, add all DOs at this level.
+                    newel = (SclTreeElem) te.clone();
+                    resolveFCDA(te, fcdae, newel, null, ((FcdaContent) fcdae.sclname).daName);
+
+                    if (newel.getChildCount() > 0)
+                        newp.add(newel);
+                }
+                break;
+
+            case SCL_DA:
+                if (daref != null) {    // DA name passed as argument
+                     if (daname == null) {
+                        if ((delim = daref.indexOf('.')) > -1) {     // Structured name, contains dot '.'
+                            daname = daref.substring(0, delim);
+                            chdan = daref.substring(delim + 1);
+                        }
+                        else
+                            daname = daref;
+                    }
+
+                    if (compareNameRef((String) te.sclname, daname, true)) {
+                        if (!checkArrayRef(fcdae, te, daname))
+                            return;
+
+                        if ((te.fc == null) || fcdae.fc.equals(te.fc)) {
+                            if (chdan == null)
+                                newp.add((SclTreeElem) te.cloneDA());
+                            else
+                                resolveFCDA(te, fcdae, newp, null, chdan);
+                        }
+                        return;
+                    }
+                }
+                else {  // DA name not passed, add all DAs.
+                    if ((te.fc == null) || fcdae.fc.equals(te.fc)) {
+                        newp.add((SclTreeElem) te.cloneDA());
+                    }
+                }
+                break;
+
+            case SCL_DS:
+            case SCL_RCB:
+                break;
+
+            default:
+                resolveFCDA(te, fcdae, newp, doref, daref);
+                break;
             }
+        }
+    }
+
+
+    private boolean checkArrayRef(SclTreeElem fcdae, SclTreeElem te, String name) {
+        int lpar, rpar, inum, icount;
+        String dix, snum, scount;
+
+        if ((lpar = name.indexOf('(')) < 0)
+            return true;
+
+        if ((rpar = name.substring(lpar + 1).indexOf(')')) < 0) {
+            fcdae.errMsg = "Malformed array specification - ')' missing";
+            return false;
+        }
+
+        if (rpar == 0) {
+            fcdae.errMsg = "Incorrect array specification - array element number missing";
+            return false;
+        }
+
+        if ((dix = getAttrNull((Element) fcdae.xmlNode, "ix")) == null) {
+            fcdae.errMsg = "Incorrect array specification - ix=\"\" attribute missing";
+            return false;
+        }
+
+        snum = name.substring(lpar + 1, lpar + 1 + rpar);
+        if (!snum.equals(dix)) {
+            fcdae.errMsg = "Incorrect array specification - ix=\"" + dix + "\" doesn't match array element number (" + snum + ")";
+            return false;
+        }
+
+        if ((scount = getAttrNull((Element) te.xmlNode, "count")) == null) {
+            fcdae.errMsg = "Incorrect array target - count=\"\" attribute missing";
+            return false;
+        }
+
+        try {
+            inum = Integer.parseUnsignedInt(snum);
+            icount = Integer.parseUnsignedInt(scount);
+        }
+        catch (NumberFormatException ex) {
+            fcdae.errMsg = "Invalid array specification - " + ex.getMessage();
+            return false;
+        }
+
+        if (inum == 0) {
+            fcdae.errMsg = "Invalid array specification - element number (" + snum + ") must be greater than 0";
+            return false;
+        }
+
+        if (inum >= icount) {
+            fcdae.errMsg = "Invalid array specification - element number (" + snum + ") exceeds count=\"" + scount + "\"";
+            return false;
+        }
+        return true;
+    }
+
+
+    private void copyChildren(Element parent, SclTreeElem pte, SclParser[] parsers, sclEnum sty, boolean recur) {
+        Element el;
+        String nname, aname;
+        SclTreeElem te;
+        boolean psFound;
+
+        for (el = getFirstElement(parent); el != null; el = getNextElement(el)) {
+            switch (nname = el.getNodeName()) {
+            case "Private":
+                break;
+
+            default:
+                te = null;
+                if (parsers == null) {
+                    if ((aname = getAttrNull(el, "name")) != null)
+                        nname += ": " + aname;
+
+                    te = new SclTreeElem(nname, el, null, null, sty);
+                    pte.add(te);
+                }
+                else {
+                    psFound = false;
+                    for (int i = 0; i < parsers.length; i++) {
+                        for (int j = 0; j < parsers[i].names.length; j++) {
+                            if (parsers[i].names[j].equals(nname)) {
+                                psFound = true;
+                                if ((te = parsers[i].parser(el, recur)) != null)
+                                    pte.add(te);
+                                break;
+                            }
+                        }
+                        if (psFound)
+                            break;
+                    }
+
+                    if (!psFound) {
+                        te = new SclTreeElem(nname, el, null, null, sty);
+                        pte.add(te);
+                    }
+                }
+
+                if (recur && (te != null))
+                    copyChildren(el, te, parsers, sty, recur);
+                break;
+            }
+        }
+    }
+
+
+    private void copyAttributes(Element source, Element dest, String exclude) {
+        NamedNodeMap attrs = source.getAttributes();
+        Attr attr;
+
+        for (int i = 0; i < attrs.getLength(); i++) {
+            attr = (Attr) attrs.item(i);
+            if (exclude != null) {
+                if (exclude.equals(attr.getName()))
+                    continue;
+            }
+            dest.setAttribute(attr.getName(), attr.getValue());
+        }
+    }
+
+
+    private Element getNextElement(Node nd) {
+        for (nd = nd.getNextSibling(); nd != null; nd = nd.getNextSibling()) {
+            if (nd.getNodeType() == Node.ELEMENT_NODE)
+                return (Element) nd;
         }
         return null;
     }
 
 
-    private void addChildNode(Node parent, sclTreeElem pte, String name) {
+    private Element getFirstElement(Node parent) {
         Node nd;
 
-        if ((nd = getChildNode(parent, name)) != null) {
-            sclTreeElem te = new sclTreeElem(name, nd, null, name, "", 0);
-            pte.add(te);
-        }
-    }
-
-
-    private Node getNextNode(Node current, String name) {
-        Node nd;
-        for (nd = current.getNextSibling(); nd != null; nd = nd.getNextSibling()) {
-            if (nd.getNodeName().equals(name)) {
-                return nd;
-            }
+        for (nd = parent.getFirstChild(); nd != null; nd = nd.getNextSibling()) {
+            if (nd.getNodeType() == Node.ELEMENT_NODE)
+                return (Element) nd;
         }
         return null;
     }
 
 
-    private String getAttribute(Node parent, String name) {
-        NamedNodeMap attrs;
-        Node nd;
+    private String getAttrNull(Element parent, String name) {
 
-        if ((attrs = parent.getAttributes()) != null) {
-            if ((nd = attrs.getNamedItem(name)) != null) {
-                return nd.getNodeValue();
-            }
-        }
+        if (parent.hasAttribute(name))
+            return parent.getAttribute(name);
         return null;
+    }
+
+
+    private void getEddition(Element roote) {
+        String sver = roote.getAttribute("version");
+        //String srev = roote.getAttribute("revision");
+        String srel = roote.getAttribute("release");
+
+        switch (sver) {
+        case "2007":
+            switch (srel) {
+            case "4":
+                scledition = sclEditions.SCL_ED21;
+                break;
+
+            default:
+                scledition = sclEditions.SCL_ED2;
+                break;
+            }
+            break;
+
+        default:
+            scledition = sclEditions.SCL_ED1;
+            break;
+        }
     }
 
 
@@ -740,122 +1074,261 @@ public class SCLtree_node {
         case "Timestamp":
             flags |= FLAG_TIMESTAMP;
             break;
-        case "Struct":
-            flags |= FLAG_STRUCT;
-            break;
         }
         return flags;
     }
 
 
-    private void updateSelected(sclTreeElem current) {
+    private boolean updateSelected(SclTreeElem current) {
         int daflags;
+        String btype;
 
-        selectedSCL.clear();
+        SelectedSCL.clear();
 
         daflags = traverseParents(current);
 
-        if (
-                (selectedSCL.fc != null) &&         // Selected element is shown only if FC was found and
-                ((current.flags & FLAG_DA) > 0)) {  // it has DA flag, this excludes DAI <Val></Val>
-            switch (selectedSCL.fc) {
-            case "ST":
-            case "MX":
-                if ((daflags & FLAG_STRUCT) > 0) {  // Data attribute other than bType="Struct" must be selected
-                    SclMain.newSelected(true);
-                    return;
-                }
-                break;
-            case "CO":
-                SclMain.newSelected(true);          // Doesn't matter which data attribute is selected for CO
-                return;
-            default:
-                break;
+        if (SelectedSCL.fc == null)             // Selected element is shown only if FC is found and
+            return false;
+        if (current.sclty != sclEnum.SCL_DA)    // it is DA
+            return false;
+
+        switch (SelectedSCL.fc) {
+        case "ST":
+            if ((daflags & (FLAG_QUALITY | FLAG_TIMESTAMP)) != (FLAG_QUALITY | FLAG_TIMESTAMP))
+                return false;
+            btype = ((Element) current.xmlNode).getAttribute("bType");
+            if (current.getChildCount() > 0) {
+                if ((btype = traverseChildren(current, btype)) == null)
+                    return false;
             }
+
+            switch (btype) {
+            case "BOOLEAN":
+            case "Dbpos":
+            case "Tcmd":
+                SelectedSCL.objtypes[0] = 0;
+                break;
+
+            case "INT8":
+            case "INT16":
+            case "INT24":
+            case "INT32":
+            case "INT64":
+            case "INT128":
+            case "INT8U":
+            case "INT16U":
+            case "INT24U":
+            case "INT32U":
+            case "INT64U":
+            case "INT128U":
+            case "FLOAT32":
+            case "FLOAT64":
+                SelectedSCL.objtypes[0] = 1;
+                break;
+
+            case "Enum":
+                Integer largest;
+                if ((largest = checkEnums(current)) == null)
+                    return false;
+
+                if (largest > 1)
+                    SelectedSCL.objtypes[1] = 1;
+                SelectedSCL.objtypes[0] = 0;    // Suggest OnValues and OffValues
+                break;
+
+            //case "Struct": // Should have already been traversed
+            default:
+                return false;
+            }
+            return true;
+
+        case "MX":
+            if ((daflags & (FLAG_QUALITY | FLAG_TIMESTAMP)) != (FLAG_QUALITY | FLAG_TIMESTAMP))
+                return false;
+            if (traverseChildren(current, "") == null)
+                return false;
+            SelectedSCL.objtypes[0] = 1;
+            return true;
+
+        case "CO":
+            SclTreeElem cate, bte;
+            if (current.fc != null)
+                cate = current;
+            else {
+                cate = (SclTreeElem) current.getParent();
+                if (cate.fc == null)    // orCat or orIdent selected
+                    cate = (SclTreeElem) cate.getParent();
+            }
+            //SelectedSCL.daname = (String) cate.sclname;
+
+            for (bte = (SclTreeElem) cate.getFirstChild(); bte != null; bte = (SclTreeElem) bte.getNextSibling()) {
+                if ("ctlVal".equals(bte.sclname)) {
+                    switch (((Element) bte.xmlNode).getAttribute("bType")) {
+                    case "BOOLEAN":
+                    case "Dbpos":
+                    case "Tcmd":
+                        SelectedSCL.objtypes[0] = 2;
+                        break;
+
+                    case "Enum":
+                        Integer largest;
+                        if ((largest = checkEnums(bte)) == null)
+                            return false;
+                        if (largest > 1)
+                            SelectedSCL.objtypes[0] = 3;
+                        else
+                            SelectedSCL.objtypes[0] = 2;
+                        break;
+
+                    default:
+                        SelectedSCL.objtypes[0] = 3;
+                        break;
+                    }
+                    return true;
+                }
+            }
+            break;
+
+        default:
+            break;
         }
-        SclMain.newSelected(false);
+        return false;
     }
 
 
-    private int traverseParents(sclTreeElem current) {
-        sclTreeElem te;
+    private int traverseParents(SclTreeElem te) {
         int daflags = 0;
 
-        for (te = current; te != null; te = (sclTreeElem) te.getParent()) {
-            switch (te.flags & FLAG_TYMASK) {
-            case FLAG_LD:
-                selectedSCL.ldname = (String) te.sclname;
+        for (; te != null; te = (SclTreeElem) te.getParent()) {
+            switch (te.sclty) {
+            case SCL_IED:
+                SelectedSCL.iedname = (String) te.sclname;
                 break;
 
-            case FLAG_LN:
-                selectedSCL.lnobj = (LnName) te.sclname;
+            case SCL_LD:
+                SelectedSCL.ldname = (String) te.sclname;
                 break;
 
-            case FLAG_DO:
-                if (selectedSCL.doname == null)
-                    selectedSCL.doname = (String) te.sclname;
+            case SCL_LN:
+                SelectedSCL.lnobj = (LnName) te.sclname;
+                break;
+
+            case SCL_DO:
+                if (SelectedSCL.doname == null)
+                    SelectedSCL.doname = (String) te.sclname;
                 else
-                    selectedSCL.doname = (String) te.sclname + "." + selectedSCL.doname;
+                    SelectedSCL.doname = (String) te.sclname + "." + SelectedSCL.doname;
                 break;
 
-            case FLAG_DA:
+            case SCL_DA:
                 if ((te.flags & (FLAG_QUALITY | FLAG_TIMESTAMP)) == 0) { // Selected DA is not 'q' nor 't'
-                    if (selectedSCL.daname == null)
-                        selectedSCL.daname = (String) te.sclname;
+                    if (SelectedSCL.daname == null)
+                        SelectedSCL.daname = (String) te.sclname;
                     else
-                        selectedSCL.daname = (String) te.sclname + "." + selectedSCL.daname;
+                        SelectedSCL.daname = (String) te.sclname + "." + SelectedSCL.daname;
 
-                    if ((te.flags & FLAG_STRUCT) == 0) {    // Selected DA does not have bType="Struct"
-                        daflags |= FLAG_STRUCT;             // Inverse use of the flag here
-                    }
                     if (te.fc != null) {            // Selected DA has FC
-                        selectedSCL.fc = te.fc;
+                        SelectedSCL.fc = te.fc;
                         daflags |= checkQT(te);     // Check if there are 'q' and 't' attributes with the same FC
                     }
                 }
                 break;
 
-            case FLAG_DS:
-                if (selectedSCL.doname == null)
-                    selectedSCL.doname = ((dsContents) te.sclname).doName;
+            case SCL_FCDA:
+                if (SelectedSCL.doname == null)
+                    SelectedSCL.doname = ((FcdaContent) te.sclname).doName;
                 else
-                    selectedSCL.doname = ((dsContents) te.sclname).doName + "." + selectedSCL.doname;
+                    SelectedSCL.doname = ((FcdaContent) te.sclname).doName + "." + SelectedSCL.doname;
 
-                selectedSCL.lnobj = (LnName) te.sclname;
-                selectedSCL.ldname = ((dsContents) te.sclname).ldInst;
+                SelectedSCL.lnobj = (LnName) te.sclname;
+                SelectedSCL.ldname = ((FcdaContent) te.sclname).ldInst;
                 return daflags;
+
+            default:
+                break;
             }
         }
         return daflags;
     }
 
 
-    private int checkQT(sclTreeElem current) {
-        //int chcount = current.getChildCount();
-        sclTreeElem te;
-        int flags = 0;
+    /**
+     * Traverse structured MX attributes such as "cVal.mag.f"
+     */
+    private String traverseChildren(SclTreeElem pte, String btype) {
+        SclTreeElem te;
+        boolean found = false;
 
-        for (te = (sclTreeElem) ((sclTreeElem) current.getParent()).getFirstChild(); te != null; te = (sclTreeElem) te.getNextSibling()) {
-            if (selectedSCL.fc.equals(te.fc)) {
-                flags |= (te.flags & (FLAG_QUALITY | FLAG_TIMESTAMP));
+        for (te = (SclTreeElem) pte.getFirstChild(); te != null; te = (SclTreeElem) te.getNextSibling()) {
+            if (te.sclty == sclEnum.SCL_DA) {   // Exclude <DA><Val></DA>
+                if (found)
+                    return null;
+                SelectedSCL.daname += "." + (String) te.sclname;
+                btype = ((Element) te.xmlNode).getAttribute("bType");
+                if ((btype = traverseChildren(te, btype)) == null)
+                    return null;
+                found = true;
             }
         }
-        return flags;
+        return btype;
     }
 
 
-    private boolean compareNames(String s1, String s2) {
+    private Integer checkEnums(SclTreeElem pte) {
+        Element enval;
+        String enord;
+        int largest = 0, ord;
 
-        if (s1 != null) {
-            if (s2 != null) {
-                if (s1.equals(s2))
+        if (pte.xmlEnum == null)
+            return null;
+
+        for (enval = getFirstElement(pte.xmlEnum); enval != null; enval = getNextElement(enval)) {
+            if (!"EnumVal".equals(enval.getNodeName()))
+                return null;
+            if ((enord = getAttrNull(enval, "ord")) == null)
+                return null;
+
+            try {
+                ord = Integer.parseInt(enord);
+                if (ord > largest)
+                    largest = ord;
+            } catch (NumberFormatException ex) {
+                return null;
+            }
+        }
+        return largest;
+    }
+
+
+    private int checkQT(SclTreeElem current) {
+        SclTreeElem te;
+        int daflags = 0;
+
+        for (te = (SclTreeElem) ((SclTreeElem) current.getParent()).getFirstChild(); te != null; te = (SclTreeElem) te.getNextSibling()) {
+            if (SelectedSCL.fc.equals(te.fc)) {
+                daflags |= (te.flags & (FLAG_QUALITY | FLAG_TIMESTAMP));
+            }
+        }
+        return daflags;
+    }
+
+
+    private boolean compareNameRef(String name, String ref, boolean checkpar) {
+        int lpar;
+
+        if (name != null) {
+            if (ref != null) {
+                if (checkpar && ((lpar = ref.indexOf('(')) > -1))
+                    ref = ref.substring(0, lpar);
+
+                if (name.equals(ref))
                     return true;
             }
-            else if (s1.isEmpty())
+            else if (name.isEmpty())
                 return true;
         }
-        else if (s2 != null) {
-            if (s2.isEmpty())
+        else if (ref != null) {
+            if (ref.isEmpty())
                 return true;
         }
         else
@@ -864,7 +1337,7 @@ public class SCLtree_node {
     }
 
 
-    private static String loadAttributes(Node nd) {
+    private String loadAttributes(Node nd) {
         NamedNodeMap nnm;
         Node attr;
         String result = "";

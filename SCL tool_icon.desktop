@@ -1,0 +1,18 @@
+[Desktop Entry]
+Name=SCL tool
+Comment=Browse SCL files
+TryExec=
+Exec=java -jar /home/dell/Documents/Firmware/java/SCLtool/dist/scltool.jar
+Icon=/usr/share/icons/hicolor/scalable/apps/ibus-setup.svg
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=GNOME;GTK;System;Monitor;
+NotShowIn=KDE;
+X-GNOME-Bugzilla-Bugzilla=GNOME
+X-GNOME-Bugzilla-Product=system-monitor
+X-GNOME-Bugzilla-Component=general
+X-GNOME-Bugzilla-Version=3.18.2
+Keywords=Monitor;System;Process;CPU;Memory;Network;History;Usage;Performance;Task;Manager;
+X-Ubuntu-Gettext-Domain=gnome-system-monitor
+Name[en_GB]=SCL tool_icon

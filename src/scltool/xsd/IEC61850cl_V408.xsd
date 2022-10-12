@@ -1,0 +1,642 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns="http://www.londelec.com/xmlschemas/leandc/IEC61850cl" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:le="http://www.londelec.com/xmlschemas/leandc/LEDefinitionSchema" targetNamespace="http://www.londelec.com/xmlschemas/leandc/IEC61850cl" attributeFormDefault="unqualified" elementFormDefault="qualified" version="4.08">
+  <xs:include schemaLocation="TypesSchema.xsd"/>
+  <xs:include schemaLocation="SCL_LE.xsd"/>
+  <xs:include schemaLocation="IEC10xma.xsd"/>
+  <xs:element name="IEC61850clConfig">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="VersionControl" type="VersionControlType"/>
+        <xs:element name="ProtocolCfg" type="ProtocolCfgType"/>
+        <xs:element name="DITable" type="DITableType" minOccurs="0"/>
+        <xs:element name="AITable" type="AITableType" minOccurs="0"/>
+        <xs:element name="DOTable" type="DOTableType" minOccurs="0"/>
+        <xs:element name="AOTable" type="AOTableType" minOccurs="0"/>
+      </xs:sequence>
+      <xs:attribute name="version" type="XMLversionDecimal" use="required"/>
+      <xs:anyAttribute processContents="skip"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:complexType name="ProtocolCfgType">
+    <xs:sequence>
+      <xs:element name="CommsSettings" type="CommsSettingsType" minOccurs="0"/>
+      <xs:element name="TransportSettings" type="TransportSettingsType" minOccurs="0"/>
+      <xs:element name="SessionSettings" type="SessionSettingsType" minOccurs="0"/>
+      <xs:element name="PresentationSettings" type="PresentationSettingsType" minOccurs="0"/>
+      <xs:element name="AssociationSettings" type="AssociationSettingsType" minOccurs="0"/>
+      <xs:element name="ScsmSettings" type="ScsmSettingsType" minOccurs="0"/>
+      <xs:element name="AppSettings" type="AppSettingsType" minOccurs="0"/>
+      <xs:element name="ServiceSettings" type="MAServiceSettingsType" minOccurs="0"/>
+      <xs:element name="Timeouts" type="TimeoutsType" minOccurs="0"/>
+      <xs:element name="Periodic" type="PeriodicType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CommsSettingsType">
+    <xs:annotation>
+      <xs:documentation>Add communication link settings</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="OfflineDelay" type="OfflineDelayRange" use="optional" default="6"/>
+    <xs:attribute name="PostOfflineDelay" type="PostOfflineDelayRange" use="optional" default="0"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="TransportSettingsType">
+    <xs:annotation>
+      <xs:documentation>Add transport layer settings</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="CallingTSEL" type="CallingTSELRange" use="optional" default="1"/>
+    <xs:attribute name="SourceREF" type="SourceREFRange" use="optional" default="0x0A"/>
+    <xs:attribute name="Flags" type="TFlags" use="optional" default="0"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="SessionSettingsType">
+    <xs:annotation>
+      <xs:documentation>Add session layer settings</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="CallingSSEL" type="CallingSSELRange" use="optional" default="1"/>
+    <xs:attribute name="Flags" type="SFlags" use="optional" default="0"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="PresentationSettingsType">
+    <xs:annotation>
+      <xs:documentation>Add presentation layer settings</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="CallingPSEL" type="CallingPSELRange" use="optional" default="1"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="AssociationSettingsType">
+    <xs:annotation>
+      <xs:documentation>Add association layer settings</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="CallingAPtitle" type="CallingAPtitleType" use="optional" default="1,1,1,999"/>
+    <xs:attribute name="CallingAEqualifier" type="CallingAEqualifierRange" use="optional" default="12"/>
+    <xs:attribute name="AARQfields" type="AARQfieldsRange" use="optional" default="0"/>
+    <xs:attribute name="MMSversion" type="MMSversionRange" use="optional" default="1"/>
+    <xs:attribute name="Flags" type="AFlags" use="optional" default="0"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="ScsmSettingsType">
+    <xs:annotation>
+      <xs:documentation>Add Specific Communication Service Mapping settings</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="Bdyndsname" type="BdyndsnameType" use="optional" default="dynb"/>
+    <xs:attribute name="Udyndsname" type="UdyndsnameType" use="optional" default="dynu"/>
+    <xs:attribute name="BOptFlds" type="BOptFldsType" use="optional" default="0x0001"/>
+    <xs:attribute name="UOptFlds" type="UOptFldsType" use="optional" default="0x0000"/>
+    <xs:attribute name="Flags" type="ScsmFlags" use="optional" default="0"/>
+    <!--xs:attribute name="InfoLogFlags" type="InfoLogFlags" use="optional" default="0"/-->
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="AppSettingsType">
+    <xs:annotation>
+      <xs:documentation>Add application settings</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="IgnoreTimetags" type="IgnoreTimetagsEnum" use="optional" default="0"/>
+    <xs:attribute name="AIDeadband" type="FloatDeadbandRange" use="optional" default="0"/>
+    <xs:attribute name="AIPercent" type="FloatPercentRange" use="optional" default="0"/>
+    <xs:attribute name="DIEventStartup" type="DIEVStartupEnum" use="optional" default="1"/>
+    <xs:attribute name="AIEventStartup" type="AIEVStartupEnum" use="optional" default="1"/>
+    <xs:attribute name="ForwardGI" type="ForwardGIEnum" use="optional" default="1"/>
+    <!--Default value of bufTime is actually -1 that indicates it is not used. Value from CID will be used for static RCBs and dynamic RCB BufTm won't be updated-->
+    <xs:attribute name="bufTime" type="bufTimeRange" use="optional" default="0"/>
+    <xs:attribute name="Flags" type="AppFlags" use="optional" default="0"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="TimeoutsType">
+    <xs:annotation>
+      <xs:documentation>Add timeout values</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="Application" type="ApplicationTimeoutRange" use="optional" default="30"/>
+    <xs:attribute name="Command" type="CommandTimeoutRange" use="optional" default="10"/>
+    <xs:attribute name="Select" type="SETimeoutRange" use="optional" default="30"/>
+    <xs:attribute name="Response" type="ResponseTimeoutRange" use="optional" default="5"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="PeriodicType">
+    <xs:annotation>
+      <xs:documentation>Add periodic command intervals</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="GI" type="GITimerRange" use="optional" default="0"/>
+    <xs:attribute name="intgPd" type="intgPdRange" use="optional" default="0"/>
+  </xs:complexType>
+  <xs:complexType name="DITableType">
+    <xs:sequence>
+      <xs:element name="DI" type="DIType" maxOccurs="unbounded" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="AITableType">
+    <xs:sequence>
+      <xs:element name="AI" type="AIType" maxOccurs="unbounded" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="DOTableType">
+    <xs:sequence>
+      <xs:element name="DO" type="DOType" maxOccurs="unbounded" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="AOTableType">
+    <xs:sequence>
+      <xs:element name="AO" type="AOType" maxOccurs="unbounded" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="DIType">
+    <xs:annotation>
+      <xs:documentation>Add new DI object</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="Index" type="MADIindexRange" use="required"/>
+    <xs:attribute name="ldInst" type="tLELDInst" use="required"/>
+    <xs:attribute name="prefix" type="tLEPrefix" use="required"/>
+    <xs:attribute name="lnClass" type="tLELNClassEnum" use="required"/>
+    <xs:attribute name="lnInst" type="tLELNInstOrEmpty" use="required"/>
+    <xs:attribute name="doName" type="doNameType" use="required"/>
+    <xs:attribute name="fc" type="tLEFCEnum" use="optional" default="ST"/>
+    <xs:attribute name="Qualifier" type="IEC61850DIqualifier" use="optional" default="0"/>
+    <xs:attribute name="InterDelay" type="MADIInterDelayRange" use="optional" default="0"/>
+    <xs:attribute name="IndetDelay" type="MADIIndetDelayRange" use="optional" default="0"/>
+    <xs:attribute name="daName" type="daNameType" use="optional" default="stVal"/>
+    <xs:attribute name="DSnum" type="DSnumRange" use="optional" default="1"/>
+    <xs:attribute name="TrgOps" type="tLETrgOps" use="optional" default="0"/>
+    <xs:attribute name="intgPd" type="intgPdRange" use="optional" default="0"/>
+    <xs:attribute name="Name" type="NameString" use="optional"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="AIType">
+    <xs:annotation>
+      <xs:documentation>Add new AI object</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="Index" type="MAAIindexRange" use="required"/>
+    <xs:attribute name="ldInst" type="tLELDInst" use="required"/>
+    <xs:attribute name="prefix" type="tLEPrefix" use="required"/>
+    <xs:attribute name="lnClass" type="tLELNClassEnum" use="required"/>
+    <xs:attribute name="lnInst" type="tLELNInstOrEmpty" use="required"/>
+    <xs:attribute name="doName" type="doNameType" use="required"/>
+    <xs:attribute name="fc" type="tLEFCEnum" use="optional" default="MX"/>
+    <xs:attribute name="Qualifier" type="IEC61850AIqualifier" use="optional" default="0"/>
+    <xs:attribute name="Coeff" type="FloatCoefficientRange" use="optional" default="1"/>
+    <xs:attribute name="Deadband" type="FloatDeadbandRange" use="optional" default="0"/>
+    <xs:attribute name="Percent" type="FloatPercentRange" use="optional" default="0"/>
+    <xs:attribute name="StartOffset" type="StartOffsetRange" use="optional" default="0"/>
+    <xs:attribute name="ZeroDeadband" type="ZeroDeadbandRange" use="optional" default="0"/>
+    <xs:attribute name="Offset" type="FloatOffsetRange" use="optional" default="0"/>
+    <xs:attribute name="OffsetDeadband" type="OffsetDeadbandRange" use="optional" default="0"/>
+    <xs:attribute name="NonZeroOffset" type="NonZeroOffsetRange" use="optional" default="0"/>
+    <xs:attribute name="daName" type="daNameType" use="optional" default="cVal.mag.f"/>
+    <xs:attribute name="DSnum" type="DSnumRange" use="optional" default="1"/>
+    <xs:attribute name="TrgOps" type="tLETrgOps" use="optional" default="0"/>
+    <xs:attribute name="intgPd" type="intgPdRange" use="optional" default="0"/>
+    <xs:attribute name="Name" type="NameString" use="optional"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="DOType">
+    <xs:annotation>
+      <xs:documentation>Add new DO object</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="Index" type="MADOindexRange" use="required"/>
+    <xs:attribute name="ldInst" type="tLELDInst" use="required"/>
+    <xs:attribute name="prefix" type="tLEPrefix" use="required"/>
+    <xs:attribute name="lnClass" type="tLELNClassEnum" use="required"/>
+    <xs:attribute name="lnInst" type="tLELNInstOrEmpty" use="required"/>
+    <xs:attribute name="doName" type="doNameType" use="required"/>
+    <xs:attribute name="fc" type="tLEFCEnum" use="required"/>
+    <xs:attribute name="Qualifier" type="IEC61850DOqualifier" use="optional" default="0"/>
+    <xs:attribute name="Name" type="NameString" use="optional"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:complexType name="AOType">
+    <xs:annotation>
+      <xs:documentation>Add new AO object</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="Index" type="MAAOindexRange" use="required"/>
+    <xs:attribute name="ldInst" type="tLELDInst" use="required"/>
+    <xs:attribute name="prefix" type="tLEPrefix" use="required"/>
+    <xs:attribute name="lnClass" type="tLELNClassEnum" use="required"/>
+    <xs:attribute name="lnInst" type="tLELNInstOrEmpty" use="required"/>
+    <xs:attribute name="doName" type="doNameType" use="required"/>
+    <xs:attribute name="fc" type="tLEFCEnum" use="required"/>
+    <xs:attribute name="Qualifier" type="IEC61850AOqualifier" use="optional" default="0"/>
+    <xs:attribute name="Coeff" type="FloatCoefficientRange" use="optional" default="1"/>
+    <xs:attribute name="Name" type="NameString" use="optional"/>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+  <xs:simpleType name="OfflineDelayRange">
+    <xs:annotation>
+      <xs:documentation>Delay in seconds before station status changes to 'OFFLINE'. Offline delay timer starts after TCP socket has been disconnected or closed (0...4294967295)</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="Timer32bitType">
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="IEC61850DIqualifier">
+    <xs:annotation>
+      <xs:documentation>IEC61850 Client (Master) DI qualifier (bit encoded)</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 Invert">
+            <xs:documentation>DI inversion Enabled(1) / Disabled(0) Note! Only 'ON' and 'OFF' states of Double DI objects are inverted, 'INTERMEDIATE' and 'INDETERMINATE' states are not inverted</xs:documentation>
+          </le:bit>
+          <le:bit value="3" caption="Bit 3 Ignore TimeTag">
+            <xs:documentation>Incoming Event TimeTag received from outstation is Ignored(1) / Processed(0). Internal time is applied to Events if incoming TimeTag is Ignored</xs:documentation>
+          </le:bit>
+          <le:bit value="5" caption="Bit 5 First TimeTag">
+            <xs:documentation>Use time tag of the First(1) / Last(0) event received when Double Point object changes state OFF-&gt;INTER-&gt;ON or ON-&gt;INTER-&gt;OFF and Intermediate state is not being reported, because it doesn't exceed InterDelay. (Default value is 0)</xs:documentation>
+          </le:bit>
+          <le:bit value="7" caption="Bit 7 Disabled">
+            <xs:documentation>DI object processing is Disabled(1) / Enabled(0)</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="ByteType"/>
+  </xs:simpleType>
+  <xs:simpleType name="IEC61850AIqualifier">
+    <xs:annotation>
+      <xs:documentation>IEC61850 Client (Master) AI qualifier (bit encoded)</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="3" caption="Bit 3 Ignore TimeTag">
+            <xs:documentation>Incoming Event TimeTag received from outstation is Ignored(1) / Processed(0). Internal time is applied to Events if incoming TimeTag is Ignored</xs:documentation>
+          </le:bit>
+          <le:bit value="7" caption="Bit 7 Disabled">
+            <xs:documentation>AI object processing is Disabled(1) / Enabled(0)</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="ByteType"/>
+  </xs:simpleType>
+  <xs:simpleType name="IEC61850DOqualifier">
+    <xs:annotation>
+      <xs:documentation>IEC61850 Client (Master) DO qualifier (bit encoded)</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 Invert">
+            <xs:documentation>DO inversion Enabled(1) / Disabled(0) When enabled outgoing OFF command will be changed to ON and ON to OFF</xs:documentation>
+          </le:bit>
+          <le:bit value="1" caption="Bit 1 Synchrocheck">
+            <xs:documentation>Synchrocheck control bit in outgoing DO command is Set(1) / Cleared(0)</xs:documentation>
+          </le:bit>
+          <le:bit value="2" caption="Bit 2 Interlock">
+            <xs:documentation>Interlock control bit in outgoing DO command is Set(1) / Cleared(0)</xs:documentation>
+          </le:bit>
+          <le:bit value="7" caption="Bit 7 Disabled">
+            <xs:documentation>DO object processing is Disabled(1) / Enabled(0)</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="ByteType"/>
+  </xs:simpleType>
+  <xs:simpleType name="IEC61850AOqualifier">
+    <xs:annotation>
+      <xs:documentation>IEC61850 Client (Master) AO qualifier (bit encoded)</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="7" caption="Bit 7 Disabled">
+            <xs:documentation>AO object processing is Disabled(1) / Enabled(0)</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="ByteType"/>
+  </xs:simpleType>
+  <xs:simpleType name="CallingTSELRange">
+    <xs:annotation>
+      <xs:documentation>Identifier of the [calling Transport-Selector] used for outgoing [CR-TPDU] [ISO8073:1997]</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="Wordgt0Type">
+      </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="SourceREFRange">
+    <xs:annotation>
+      <xs:documentation>Reference selected by the transport entity initiating the [CR-TPDU] to identify the requested transport connection [ISO8073:1997]</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="Wordgt0Type">
+      </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="TFlags">
+    <xs:annotation>
+      <xs:documentation>Transport layer flags</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 Check TSEL">
+            <xs:documentation>Calling and called Transport-Selector identifiers of the received [CC-TPDU] are being Checked(1) / Ignored(0) [ISO8073:1997]</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="ByteType"/>
+  </xs:simpleType>
+  <xs:simpleType name="CallingSSELRange">
+    <xs:annotation>
+      <xs:documentation>[Calling Session Selector] used for outgoing [CONNECT (CN) SPDU] [ISO8327-1:1996]</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="Wordgt0Type">
+      </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="SFlags">
+    <xs:annotation>
+      <xs:documentation>Session layer flags</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 Keep transport">
+            <xs:documentation>Transport connection is Kept(1) / Released(0) when sending [FINISH (FN) SPDU] [ISO8327-1:1996]</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="ByteType"/>
+  </xs:simpleType>
+  <xs:simpleType name="CallingPSELRange">
+    <xs:annotation>
+      <xs:documentation>[Calling Presentation Selector] used for outgoing [CP PPDU] [ISO8823-1:1994]</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="DWordgt0Type">
+      </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="CallingAPtitleType">
+    <xs:annotation>
+      <xs:documentation>[Calling AP Title] used for outgoing [AARQ APDU] [ISO8650-1:1996]</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="64"/>
+      <xs:pattern value="([0-9,.]+)"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="CallingAEqualifierRange">
+    <xs:annotation>
+      <xs:documentation>[Calling AE Qualifier] used for outgoing [AARQ APDU] [ISO8650-1:1996]</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="Bytegt0Type">
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="AARQfieldsRange">
+    <xs:annotation>
+      <xs:documentation>Fields of outgoing [AARQ APDU]</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 Calling AP Title">
+            <xs:documentation>[Calling AP Title] field of outgoing [AARQ APDU] is Enabled(1) / Disabled(0) [ISO8650-1:1996]</xs:documentation>
+          </le:bit>
+          <le:bit value="1" caption="Bit 1 Calling AE Qualifier">
+            <xs:documentation>[Calling AE Qualifier] field of outgoing [AARQ APDU] is Enabled(1) / Disabled(0) [ISO8650-1:1996]</xs:documentation>
+          </le:bit>
+          <le:bit value="6" caption="Bit 6 Direct Reference">
+            <xs:documentation>[Direct Reference] in [Association-information] field of outgoing [AARQ APDU] is Enabled(1) / Disabled(0) [ISO8825-1:2008]</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="ByteType"/>
+  </xs:simpleType>
+  <xs:simpleType name="MMSversionRange">
+    <xs:annotation>
+      <xs:documentation>MMS version number as part of [Application Context Name] of outgoing [AARQ APDU] [ISO8650-1:1996]</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:unsignedByte">
+      <xs:minInclusive value="1"/>
+      <xs:maxInclusive value="3"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="AFlags">
+    <xs:annotation>
+      <xs:documentation>Association layer flags</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 Check AP Title AE Qualifier">
+            <xs:documentation>Responding AP Title and Responding AE Qualifier of the received [AARE APDU] are being Checked(1) / Ignored(0) [ISO8650-1:1996]</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="ByteType"/>
+  </xs:simpleType>
+  <xs:simpleType name="BdyndsnameType">
+    <xs:annotation>
+      <xs:documentation>Name for dynamic datasets that are going to be linked to Buffered report blocks</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="16"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="UdyndsnameType">
+    <xs:annotation>
+      <xs:documentation>Name for dynamic datasets that are going to be linked to Unbuffered report blocks</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="16"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="BOptFldsType">
+    <xs:annotation>
+      <xs:documentation>Optional Fields for Buffered Report Control Block</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 EntryID">
+            <xs:documentation>[entryID] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="1" caption="Bit 1 BufOvfl">
+            <xs:documentation>[buffer-overflow] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="2" caption="Bit 2 DataRef">
+            <xs:documentation>[data-reference] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="3" caption="Bit 3 DatSet">
+            <xs:documentation>[data-set-name] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="4" caption="Bit 4 ReasonCode">
+            <xs:documentation>[reason-for-inclusion] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="5" caption="Bit 5 TimeOfEntry">
+            <xs:documentation>[report-time-stamp] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="6" caption="Bit 6 SqNum">
+            <xs:documentation>[sequence-number] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="15" caption="Bit 15 ConfRev">
+            <xs:documentation>[conf-revision] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="WordType"/>
+  </xs:simpleType>
+  <xs:simpleType name="UOptFldsType">
+    <xs:annotation>
+      <xs:documentation>Optional Fields for Unbuffered Report Control Block</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 EntryID">
+            <xs:documentation>[entryID] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="1" caption="Bit 1 BufOvfl">
+            <xs:documentation>[buffer-overflow] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="2" caption="Bit 2 DataRef">
+            <xs:documentation>[data-reference] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="3" caption="Bit 3 DatSet">
+            <xs:documentation>[data-set-name] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="4" caption="Bit 4 ReasonCode">
+            <xs:documentation>[reason-for-inclusion] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="5" caption="Bit 5 TimeOfEntry">
+            <xs:documentation>[report-time-stamp] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="6" caption="Bit 6 SqNum">
+            <xs:documentation>[sequence-number] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+          <le:bit value="15" caption="Bit 15 ConfRev">
+            <xs:documentation>[conf-revision] field in the Report Included(1) / Excluded(0) [IEC61850-8-1:2011]</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="WordType"/>
+  </xs:simpleType>
+  <xs:simpleType name="ScsmFlags">
+    <xs:annotation>
+      <xs:documentation>Specific Communication Service Mapping flags</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 Leading 0 in dyndns name">
+            <xs:documentation>Omit(1) / Add(0) leading 0 in dynamic dataset names with number less than 10. This is used in conjunction with DI/AI DSnum attribute.</xs:documentation>
+          </le:bit>
+          <le:bit value="1" caption="Bit 1 PurgeBuf if fails">
+            <xs:documentation>Set(1) / Don't set(0) Buffererd Report Control Block [PurgeBuf] flag in case [EntryID] setting fails when station goes online [IEC61850-7-2:2010]</xs:documentation>
+          </le:bit>
+          <le:bit value="2" caption="Bit 2 Read All Basic Types">
+            <xs:documentation>Read Basic types of All(1) / Objects non-existent in SCL(0) when station goes online. In case IEC61850 server has any objects that don't appear in CID/SCD, basic types of those objects are being read with [GetDataDirectory]. Setting this flag forces reading BasicTypes of all objects.</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="WordType"/>
+  </xs:simpleType>
+  <xs:simpleType name="bufTimeRange">
+    <xs:annotation>
+      <xs:documentation>Interval in milliseconds for the buffering of internal notifications before Information Report is generated [IEC61850-7-2:2010] Value 0 disables buffering and Information Reports are generated instantly (0...4294967294)</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="Timer32bitType">
+      <xs:maxInclusive value="4294967294"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="AppFlags">
+    <xs:annotation>
+      <xs:documentation>Application layer flags</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="0" caption="Bit 0 Always read LD">
+            <xs:documentation>In case IED supports only static datasets Read(1) / Don't read(0) the LD directory [GetLogicalDeviceDirectory] when station goes online</xs:documentation>
+          </le:bit>
+          <le:bit value="1" caption="Bit 1 Ignore Enhanced cmd report">
+            <xs:documentation>Enhanced security command completion report is Ignored(1) / Processed(0). This bit has to be used only for IEDs that doesn't generate a report when Enhanced security Direct or SBO command is complete. If not set command will be removed only after Application timeout expiration.</xs:documentation>
+          </le:bit>
+          <le:bit value="2" caption="Bit 2 Use millisecond accuracy">
+            <xs:documentation>Millisecond accuracy of timetags received from IED is Used(1) / Ignored(0). Some IEDs report lower accuracy if the IED is not synchronized. Enabling this setting will result in rounding of milliseconds based on the accuracy and the timetag may appear different from the value IED has recorded in the internal event list.</xs:documentation>
+          </le:bit>
+          <!--le:bit value="8" caption="Bit 8 All static datasets">
+            <xs:documentation>Enable and use All(1) / Required only(0) static datasets when station goes online. Only those Static datasets that contain required DI/AIs (defined in XML) are enabled by default (0). All static datasets found in SCL file are enabled if set to (1). This option has no effect on dynamic datasets.</xs:documentation>
+          </le:bit-->
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="WordType"/>
+  </xs:simpleType>
+  <xs:simpleType name="intgPdRange">
+    <xs:annotation>
+      <xs:documentation>Interval in milliseconds for generating periodic integrity reports [IEC61850-7-2:2010] Value 0 disables integrity reports (0...4294967294)</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="Timer32bitType">
+      <xs:maxInclusive value="4294967294"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="DSnumRange">
+    <xs:annotation>
+      <xs:documentation>Number of the dynamic dataset that will include this object. It is recommended not to use this attribute, unless you fully understand implications. Objects will be grouped in datasets automatically if this attribute is omitted (1...100)</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:unsignedByte">
+      <xs:minInclusive value="1"/>
+      <xs:maxInclusive value="100"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="ResponseTimeoutRange">
+    <xs:annotation>
+      <xs:documentation>Response timeout in seconds. Connection to IED will be closed if no repsponse to a sent messgage has been received within this timeout.</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="Timer32bitType">
+      <xs:minInclusive value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="tLELDInst">
+    <xs:annotation>
+      <xs:documentation>Logical Device instance e.g. 'LD0' (max 64 characters)</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="tLDInst">
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="tLEPrefix">
+    <xs:annotation>
+      <xs:documentation>Prefix of the Logical Node name e.g. 'Q0' (0...11 characters)</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="tPrefix">
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="tLELNClassEnum">
+    <xs:annotation>
+      <xs:documentation>Logical Node Class e.g. 'XCBR' (4 characters)</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="tLNClassEnum">
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="tLELNInstOrEmpty">
+    <xs:annotation>
+      <xs:documentation>Logical Node Instance e.g. '1' (0...12 characters)</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="tLNInstOrEmpty">
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="tLEExtensionFCEnum">
+    <xs:restriction base="xs:Name">
+      <xs:enumeration value="RP"/>
+      <xs:enumeration value="BR"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="tLEFCEnum">
+    <xs:annotation>
+      <xs:documentation>Functional Constraint e.g. 'ST' (2 characters)</xs:documentation>
+    </xs:annotation>
+    <xs:union memberTypes="tFCEnum tLEExtensionFCEnum"/>
+  </xs:simpleType>
+  <xs:simpleType name="tLETrgOps">
+    <xs:annotation>
+      <xs:documentation>Trigger Options</xs:documentation>
+      <xs:appinfo>
+        <le:binaryEncode>
+          <le:bit value="3" caption="Bit 3 [dupd]">
+            <xs:documentation>Information Report that includes this data object Will(1) / Won't(0) be generated on Data-update [dupd] [IEC61850-7-2:2010]</xs:documentation>
+          </le:bit>
+          <le:bit value="4" caption="Bit 4 [integrity]">
+            <xs:documentation>Information Report that includes this data object Will(1) / Won't(0) be generated periodicaly [integrity] upon [intgPd] timer expiration [IEC61850-7-2:2010]</xs:documentation>
+          </le:bit>
+        </le:binaryEncode>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:restriction base="ByteType"/>
+  </xs:simpleType>
+  <xs:simpleType name="doNameType">
+    <xs:annotation>
+      <xs:documentation>Data object name. It may contain either single level name e.g. 'Pos' or multiple level name e.g. 'A.phsA' (1...64 characters)</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="tName">
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="daNameType">
+    <xs:annotation>
+      <xs:documentation>Data attribute name. It may contain either single level name e.g. 'stVal' or multiple level name e.g. 'cVal.mag.f' (1...64 characters)</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="tName">
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

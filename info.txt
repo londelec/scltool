@@ -1,0 +1,20 @@
+XSD schema -> Java classes
+
+Use 'xjc' binary to compile XSD schemas to Java Classes
+Syntax:
+
+xjc SCL.xsd
+
+07/05/2017
+
+
+Old library:
+/usr/share/maven-repo/org/jdom/jdom2/2.0.5/jdom2-2.0.5.jar
+
+New library:
+mvn dependency:get -Dartifact=org.jdom:jdom2:2.0.6.1
+
+located in:
+~/.m2/repository/org/jdom/jdom2/2.0.6.1/jdom2-2.0.6.1.jar
+
+22/09/2022

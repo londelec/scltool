@@ -1,0 +1,11 @@
+/build
+/dist
+/nbproject
+/Edition2_test
+*.cid
+build.xml
+manifest.mf
+AI.csv
+DI.csv
+DO.csv
+output.xml
