@@ -93,7 +93,7 @@ public class SclMain extends javax.swing.JFrame {
     private static final JCheckBoxMenuItem menuPanelEna[] = new JCheckBoxMenuItem[4];
     private final JPanel panelFind = new JPanel();
     public static int vflags = FLAG_SERVICES | FLAG_DSRCB | FLAG_COMMS;
-    private static final String SWVERSION = "V3.0";
+    private static final String SWVERSION = "V3.1";
     private static String buildDate = "Not available";
     private static final String MAINTITLE = "SCL browser";
     private static final String COPYRIGHT = "© 2022 Londelec UK Ltd\nThis program comes with absolutely no warranty.";

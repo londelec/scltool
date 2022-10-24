@@ -1242,6 +1242,12 @@ public class SCLtree_node {
 
                 SelectedSCL.lnobj = (LnName) te.sclname;
                 SelectedSCL.ldname = ((FcdaContent) te.sclname).ldInst;
+                for (; te != null; te = (SclTreeElem) te.getParent()) {
+                    if (te.sclty == sclEnum.SCL_IED) {
+                        SelectedSCL.iedname = (String) te.sclname;
+                        break;
+                    }
+                }
                 return daflags;
 
             default:

@@ -204,11 +204,26 @@ public class TableXml extends JTable {
         @Override
         public void mousePressed(MouseEvent me) {
             if (me.isPopupTrigger()) {
-                TableXml src = (TableXml) me.getSource();
-
-                if (src.getSelectedRow() >= 0)
-                    rowpopmenu.show(me.getComponent(), me.getX(), me.getY());
+                /* isPopupTrigger() is true only in Mouse Pressed event on Linux */
+                //System.out.println("mousePressed: " + me.toString());
+                raisePopup(me);
             }
+        }
+
+        @Override
+        public void mouseReleased(MouseEvent me) {
+            if (me.isPopupTrigger()) {
+                /* isPopupTrigger() is true only in Mouse Released event on Windows */
+                //System.out.println("mouseReleased: " + me.toString());
+                raisePopup(me);
+            }
+        }
+
+        private void raisePopup(MouseEvent me) {
+            TableXml src = (TableXml) me.getSource();
+
+            if (src.getSelectedRow() >= 0)
+                rowpopmenu.show(me.getComponent(), me.getX(), me.getY());
         }
     }
 

@@ -1,0 +1,31 @@
+SCLtool versions
+
+V3.1 [24/10/2022]
+* Mouse right-click on a table entry shows popup menu with delete option. Wasn't working on Windows.
+* Show IED name in 'Selected' panel when FCDA is selected.
+
+V3.0 [12/10/2022]
+* XML and CSV import implemented
+* SCL Edition2.1 support added
+* SCL validation against schema implemented
+* Analog Output (AO) support added
+* SCL Array support added
+* FCDAs that can't be found in the SCL tree are highlighted red
+* All SCL nodes (except Subsation) shown by default
+* New option to select leandc application version.
+  Versions V4.00..V5.00 available.
+  It is also possible to put a newer leandc schema (IEC61850.xsd) right next to the JAR and
+  new version will be added to the selectable version list.
+* DI/AI/DO/AO panels and columns in tables can be hidden
+* All properties and values of Data Objects (DO) and Data Attributes (DA) shown in 'Attributes' panel.
+
+V2.0 [06/03/2018]
+* Find feature added
+* SCL <Communication> node shown in SCL tree
+* IEC61850 edition shown in application title
+* XML export for leandc application V4.09
+
+V1.0 [09/08/2017]
+* Initial version
+* XML export for leandc application V4.06
+
